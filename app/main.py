@@ -13,10 +13,7 @@ from app.routes.performance_credits import router as performance_credits_router
 from app.routes.media import router as media_router
 from app.routes.composer import router as composer_router
 from app.routes.track import router as track_router
-from app.routes.statistics import router as song_insights
-from app.routes.statistics import router as instrumental_tracks
-from app.routes.statistics import router as track_key
-from app.routes.statistics import router as executive_summary
+from app.routes.statistics import router as statistics_router # Una sola importación
 
 load_dotenv()
 
@@ -59,7 +56,4 @@ app.include_router(performance_credits_router, prefix="/api/v1/performance-credi
 app.include_router(media_router, prefix="/api/v1/media", tags=["Media"])
 app.include_router(composer_router, prefix="/api/v1/composers", tags=["Composition"])
 app.include_router(track_router, prefix="/api/v1/tracks", tags=["Discography"])
-app.include_router(song_insights, prefix="/api/v1/statistics", tags=["Statistics"])
-app.include_router(instrumental_tracks, prefix="/api/v1/statistics", tags=["Statistics"])
-app.include_router(track_key, prefix="/api/v1/statistics", tags=["Statistics"])
-app.include_router(executive_summary, prefix="/api/v1/statistics", tags=["Statistics"])
+app.include_router(statistics_router, prefix="/api/v1/statistics", tags=["Statistics"])

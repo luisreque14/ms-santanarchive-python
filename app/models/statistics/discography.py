@@ -18,3 +18,10 @@ class ExecutiveSummaryResponse(BaseModel):
     instrumental_percentage: float
     love_songs_percentage: float
     most_used_key: str
+
+class LoveSongStatsResponse(BaseModel):
+    total_tracks: int
+    love_songs_count: int
+    non_love_songs_count: int
+    love_songs_percentage: float
+    non_love_songs_percentage: float

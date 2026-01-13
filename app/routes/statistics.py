@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Query, HTTPException
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Query
 from app.services.statistics_service import StatisticsService
 from app.models.statistics.discography import (
-    InstrumentalStatsResponse, TrackKeyStats, ExecutiveSummaryResponse
+    LoveSongStatsResponse,
+    ExecutiveSummaryResponse,
+    TrackKeyStats,
+    InstrumentalStatsResponse
 )
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -22,4 +25,11 @@ async def get_summary():
     # Asumiendo que moviste la lógica al servicio
     data = await StatisticsService.get_executive_summary_logic()
     if not data: raise HTTPException(404, "Error al generar resumen")
+    return data
+
+@router.get("/love-songs", response_model=LoveSongStatsResponse)
+async def get_love_songs_stats():
+    data = await StatisticsService.get_love_song_stats_logic()
+    if not data:
+        raise HTTPException(status_code=404, detail="No data found")
     return data

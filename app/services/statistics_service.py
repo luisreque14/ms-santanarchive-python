@@ -107,3 +107,44 @@ class StatisticsService:
         cursor = db.tracks.aggregate(pipeline)
         result = await cursor.to_list(length=1)
         return result[0] if result and result[0].get("total_tracks") is not None else None
+
+    async def get_love_song_stats_logic():
+        db = get_db()
+
+        pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "total": {"$sum": 1},
+                    "love_songs": {
+                        "$sum": {"$cond": ["$metadata.is_love_song", 1, 0]}
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "total_tracks": "$total",
+                    "love_songs_count": "$love_songs",
+                    "non_love_songs_count": {"$subtract": ["$total", "$love_songs"]},
+                    "love_songs_percentage": {
+                        "$cond": [
+                            {"$gt": ["$total", 0]},
+                            {"$multiply": [{"$divide": ["$love_songs", "$total"]}, 100]},
+                            0
+                        ]
+                    },
+                    "non_love_songs_percentage": {
+                        "$cond": [
+                            {"$gt": ["$total", 0]},
+                            {"$multiply": [{"$divide": [{"$subtract": ["$total", "$love_songs"]}, "$total"]}, 100]},
+                            0
+                        ]
+                    }
+                }
+            }
+        ]
+
+        cursor = db.tracks.aggregate(pipeline)
+        result = await cursor.to_list(length=1)
+        return result[0] if result else None
