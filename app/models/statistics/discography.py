@@ -1,0 +1,20 @@
+from pydantic import BaseModel
+from typing import Optional
+
+class InstrumentalStatsResponse(BaseModel):
+    album_id: Optional[int] = None
+    album_name: str
+    total_instrumental: int
+    total_vocal: int
+
+class TrackKeyStats(BaseModel):
+    album_id: Optional[int] = None
+    album_name: str
+    key: str
+    count: int
+
+class ExecutiveSummaryResponse(BaseModel):
+    total_tracks: int
+    instrumental_percentage: float
+    love_songs_percentage: float
+    most_used_key: str
