@@ -14,6 +14,7 @@ from app.routes.performance_credits import router as performance_credits_router
 from app.routes.media import router as media_router
 from app.routes.composer import router as composer_router
 from app.routes.track import router as track_router
+from app.routes.statistics.discography.song_insights import router as song_insights
 
 load_dotenv()
 
@@ -56,3 +57,4 @@ app.include_router(performance_credits_router, prefix="/api/v1/performance-credi
 app.include_router(media_router, prefix="/api/v1/media", tags=["Media"])
 app.include_router(composer_router, prefix="/api/v1/composers", tags=["Composition"])
 app.include_router(track_router, prefix="/api/v1/tracks", tags=["Discography"])
+app.include_router(song_insights, prefix="/api/v1/statistics", tags=["Statistics"])
