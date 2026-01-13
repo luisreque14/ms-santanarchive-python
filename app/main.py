@@ -4,7 +4,6 @@ from app.database import connect_to_mongo, db_instance
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
-# Importación de todos los routers
 from app.routes.geography import router as geo_router
 from app.routes.musician import router as musician_router
 from app.routes.album import router as album_router
@@ -15,6 +14,8 @@ from app.routes.media import router as media_router
 from app.routes.composer import router as composer_router
 from app.routes.track import router as track_router
 from app.routes.statistics.discography.song_insights import router as song_insights
+from app.routes.statistics.discography.instrumental_tracks import router as instrumental_tracks
+from app.routes.statistics.discography.track_key import router as track_key
 
 load_dotenv()
 
@@ -58,3 +59,5 @@ app.include_router(media_router, prefix="/api/v1/media", tags=["Media"])
 app.include_router(composer_router, prefix="/api/v1/composers", tags=["Composition"])
 app.include_router(track_router, prefix="/api/v1/tracks", tags=["Discography"])
 app.include_router(song_insights, prefix="/api/v1/statistics", tags=["Statistics"])
+app.include_router(instrumental_tracks, prefix="/api/v1/statistics", tags=["Statistics"])
+app.include_router(track_key, prefix="/api/v1/statistics", tags=["Statistics"])
