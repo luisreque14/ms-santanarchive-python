@@ -4,7 +4,7 @@ from app.models.statistics.discography import (
     LoveSongStatsResponse,
     ExecutiveSummaryResponse,
     TrackKeyStats,
-    InstrumentalStatsResponse
+    InstrumentalStatsResponse, MusicalGenreStatsResponse
 )
 from typing import List, Optional
 
@@ -33,3 +33,10 @@ async def get_love_songs_stats():
     if not data:
         raise HTTPException(status_code=404, detail="No data found")
     return data
+
+@router.get("/musical-genres", response_model=List[MusicalGenreStatsResponse])
+async def get_genre_stats():
+    results = await StatisticsService.get_genre_stats_logic()
+    if not results:
+        raise HTTPException(status_code=404, detail="No se encontraron géneros")
+    return results

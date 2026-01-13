@@ -25,3 +25,9 @@ class LoveSongStatsResponse(BaseModel):
     non_love_songs_count: int
     love_songs_percentage: float
     non_love_songs_percentage: float
+
+class MusicalGenreStatsResponse(BaseModel):
+    genre_id: int
+    genre_name: str
+    track_count: int
+    percentage: float

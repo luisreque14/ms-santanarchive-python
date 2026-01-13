@@ -148,3 +148,64 @@ class StatisticsService:
         cursor = db.tracks.aggregate(pipeline)
         result = await cursor.to_list(length=1)
         return result[0] if result else None
+
+    async def get_genre_stats_logic():
+        db = get_db()
+
+        pipeline = [
+            # 1. Expandir los géneros
+            {"$unwind": "$genre_ids"},
+
+            # 2. Agrupar por género y crear una rama para el total global de etiquetas
+            {
+                "$facet": {
+                    "counts_by_genre": [
+                        {"$group": {"_id": "$genre_ids", "count": {"$sum": 1}}},
+                        {"$sort": {"count": -1}}
+                    ],
+                    "total_occurrences": [
+                        {"$count": "total"}
+                    ]
+                }
+            },
+
+            # 3. Procesar los resultados del facet
+            {"$unwind": "$counts_by_genre"},
+            {
+                "$addFields": {
+                    "total_sum": {"$arrayElemAt": ["$total_occurrences.total", 0]}
+                }
+            },
+
+            # 4. Lookup para nombres de géneros
+            {
+                "$lookup": {
+                    "from": "genres",
+                    "localField": "counts_by_genre._id",
+                    "foreignField": "id",
+                    "as": "info"
+                }
+            },
+            {"$unwind": "$info"},
+
+            # 5. Proyecto final con porcentaje sobre el total de ETIQUETAS
+            {
+                "$project": {
+                    "_id": 0,
+                    "genre_id": "$counts_by_genre._id",
+                    "genre_name": "$info.name",
+                    "track_count": "$counts_by_genre.count",
+                    "percentage": {
+                        "$cond": [
+                            {"$gt": ["$total_sum", 0]},
+                            {"$multiply": [{"$divide": ["$counts_by_genre.count", "$total_sum"]}, 100]},
+                            0
+                        ]
+                    }
+                }
+            },
+            {"$sort": {"track_count": -1}}
+        ]
+
+        cursor = db.tracks.aggregate(pipeline)
+        return await cursor.to_list(length=None)
