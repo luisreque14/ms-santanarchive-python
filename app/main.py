@@ -19,7 +19,6 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Todo lo que esté ANTES del yield se ejecuta al arrancar
     print("🚀 Iniciando conexión a MongoDB...")
 
     uri = os.getenv("MONGODB_URL")

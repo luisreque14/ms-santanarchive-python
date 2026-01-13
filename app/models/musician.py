@@ -65,7 +65,6 @@ raw_data = {
 
 def validate_and_show():
     try:
-        # Validar todo el objeto contra el schema
         band_data = SantanaBandData(**raw_data)
         print("✅ Validación exitosa: Los datos cumplen con el schema.\n")
 
