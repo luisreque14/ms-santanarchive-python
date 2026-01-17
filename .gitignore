@@ -1,0 +1,16 @@
+# Python (Cubre __pycache__ en todas las subcarpetas)
+__pycache__/
+*.pyc
+
+# Entornos virtuales
+.venv/
+env/
+venv/
+
+# PyCharm / IntelliJ
+.idea/
+
+# VS Code
+.vscode/
+# Nota: A veces es bueno subir .vscode/launch.json, 
+# pero si prefieres limpieza total, ignora toda la carpeta.

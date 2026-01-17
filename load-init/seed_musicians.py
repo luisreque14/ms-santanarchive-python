@@ -36,7 +36,6 @@ async def load_excel_to_mongo(file_path):
         print("❌ Error: MONGODB_URL o DB_NAME no están definidos en el .env")
         return
 
-    # 2. Conexión usando TU método
     await connect_to_mongo(uri, db_name)
     db = get_db()
 

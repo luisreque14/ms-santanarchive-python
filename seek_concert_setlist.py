@@ -7,8 +7,8 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- CONFIGURACIÓN PRINCIPAL ---
-ANIO_INICIO = 1967
-ANIO_FIN = 1969
+ANIO_INICIO = 2026
+ANIO_FIN = 2026
 MODO_HEADLESS = True
 
 
@@ -31,7 +31,6 @@ def ejecutar_scraping_rango(inicio, fin, headless):
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--window-size=1920,1080")
-
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
@@ -43,12 +42,22 @@ def ejecutar_scraping_rango(inicio, fin, headless):
         driver.get(url_busqueda)
         time.sleep(5)
 
-        # DETECCIÓN DE PÁGINAS (Usando selector pageLink confirmado)
+        # --- DETECCIÓN HÍBRIDA DE PÁGINAS ---
         try:
-            pag_elems = driver.find_elements(By.CSS_SELECTOR, ".listPagingNavigator .pageLink")
-            numeros = [int(e.text.strip()) for e in pag_elems if e.text.strip().isdigit()]
+            # Criterio 1: Elementos con clase .pageLink
+            criterio_old = driver.find_elements(By.CSS_SELECTOR, ".listPagingNavigator .pageLink")
+            # Criterio 2: Cualquier descendiente de la lista (para capturar el '14')
+            criterio_new = driver.find_elements(By.CSS_SELECTOR, ".listPagingNavigator li *")
+
+            todos_los_elementos = criterio_old + criterio_new
+            numeros = []
+            for e in todos_los_elementos:
+                txt = e.text.strip()
+                if txt.isdigit():
+                    numeros.append(int(txt))
+
             total_paginas = max(numeros) if numeros else 1
-            print(f" [SISTEMA] Se detectaron {total_paginas} páginas de resultados.")
+            print(f" [SISTEMA] Detección híbrida exitosa: {total_paginas} páginas encontradas.")
         except:
             total_paginas = 1
 
@@ -66,7 +75,6 @@ def ejecutar_scraping_rango(inicio, fin, headless):
                 try:
                     link_elem = item.find_element(By.CSS_SELECTOR, "h2 a")
                     url_detalle = link_elem.get_attribute("href")
-
                     try:
                         tour_raw = item.find_element(By.XPATH, ".//*[contains(text(), 'Tour:')]").text
                         tour_text = tour_raw.split("Tour:")[1].strip()
@@ -113,45 +121,39 @@ def ejecutar_scraping_rango(inicio, fin, headless):
 
             filas_canciones = driver.find_elements(By.CSS_SELECTOR, "li.setlistParts.song")
 
+            # SI NO HAY CANCIONES, AGREGAR FILA VACÍA
+            if not filas_canciones:
+                all_final_data.append({
+                    "Fecha": c['fecha'], "Venue": c['venue'], "Es Festival?": c['es_festival'],
+                    "Tour": tour_final, "Ciudad": c['ciudad'], "Estado": c['estado'],
+                    "País": c['pais'], "Canción": "", "Artista Invitado": "", "Artista Invitado Full Text": ""
+                })
+                continue
+
             for fila in filas_canciones:
                 try:
                     cancion = fila.find_element(By.CLASS_NAME, "songLabel").text.strip()
                     invitado_full, invitado_limpio = "", ""
-
                     try:
                         info_part = fila.find_element(By.CLASS_NAME, "infoPart")
                         texto_small = info_part.find_element(By.TAG_NAME, "small").text.strip()
-
-                        # COLUMNA FULL TEXT: Se guarda el valor original íntegro
                         invitado_full = texto_small.replace("(", "").replace(")", "").strip()
-
-                        # COLUMNA LIMPIA: Aplicamos el embudo de validación
                         texto_lower = invitado_full.lower()
 
                         if "with" in texto_lower:
                             parte_despues_with = invitado_full.split("with")[1].strip()
-                            despues_lower = parte_despues_with.lower()
+                            bloqueadores = ["snippet", "introduction", "band intro", "cover", "by ", "solo", "tease",
+                                            "lyrics", "debut", "jam", "instrumental", "bass", "drum", "percussion",
+                                            "guitar"]
 
-                            bloqueadores = [
-                                "snippet", "introduction", "band intro", "cover", "by ",
-                                "solo", "tease", "lyrics", "debut", "jam", "instrumental",
-                                "bass", "drum", "percussion", "guitar"
-                            ]
-
-                            # Si no es una nota técnica y no empieza con comillas (canción)
-                            es_ruido = any(b in despues_lower for b in bloqueadores) or parte_despues_with.startswith(
-                                '"')
-
-                            if not es_ruido:
-                                # Limpieza de coletillas finales (live, debut, etc.)
+                            if not (any(b in parte_despues_with.lower() for b in
+                                        bloqueadores) or parte_despues_with.startswith('"')):
                                 separadores = [" live", " debut", " on ", " snippet", " cover", " by "]
                                 nombre_final = parte_despues_with
                                 for sep in separadores:
-                                    if sep in nombre_final.lower():
-                                        nombre_final = nombre_final.lower().split(sep)[0].strip()
-
-                                if len(nombre_final) > 2:
-                                    invitado_limpio = nombre_final.strip(' "').title()
+                                    if sep in nombre_final.lower(): nombre_final = nombre_final.lower().split(sep)[
+                                        0].strip()
+                                if len(nombre_final) > 2: invitado_limpio = nombre_final.strip(' "').title()
                     except:
                         pass
 
@@ -175,6 +177,5 @@ if __name__ == "__main__":
         df = pd.DataFrame(datos)
         columnas = ["Fecha", "Venue", "Es Festival?", "Tour", "Ciudad", "Estado", "País", "Canción", "Artista Invitado",
                     "Artista Invitado Full Text"]
-        archivo = f"Santana_Setlists_{ANIO_INICIO}_{ANIO_FIN}.xlsx"
-        df[columnas].to_excel(archivo, index=False)
-        print(f"\n¡ÉXITO! El archivo '{archivo}' ha sido generado correctamente.")
+        df[columnas].to_excel(f"Santana_Setlists_{ANIO_INICIO}_{ANIO_FIN}.xlsx", index=False)
+        print(f"\n¡ÉXITO! Proceso finalizado.")
