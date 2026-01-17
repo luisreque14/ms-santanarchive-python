@@ -56,10 +56,11 @@ async def get_album_by_id(album_id: int):
 async def get_album_tracks(album_id: int):
     db = get_db()
 
-    # Buscamos los tracks y unimos con sus compositores para mostrar nombres reales
     pipeline = [
         {"$match": {"album_id": album_id}},
         {"$sort": {"track_number": 1}},  # Ordenar por número de pista
+
+        # 1. Lookup para Compositores
         {
             "$lookup": {
                 "from": "composers",
@@ -68,6 +69,18 @@ async def get_album_tracks(album_id: int):
                 "as": "composers_info"
             }
         },
+
+        # 2. Lookup para Colaboradores (Nuevo)
+        {
+            "$lookup": {
+                "from": "collaborators",
+                "localField": "collaborator_ids",
+                "foreignField": "id",
+                "as": "collaborators_info"
+            }
+        },
+
+        # 3. Proyección de campos
         {
             "$project": {
                 "_id": 0,
@@ -75,12 +88,13 @@ async def get_album_tracks(album_id: int):
                 "track_number": 1,
                 "duration": 1,
                 "composers": "$composers_info.full_name",
+                "collaborators": "$collaborators_info.full_name",  # Extrae solo los nombres
                 "metadata": 1
             }
         }
     ]
 
     tracks = await db.tracks.aggregate(pipeline).to_list(length=100)
-    if not tracks:
-        return []
-    return tracks
+
+    # Retornamos lista vacía si no hay resultados, manteniendo consistencia
+    return tracks if tracks else []

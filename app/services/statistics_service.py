@@ -209,3 +209,105 @@ class StatisticsService:
 
         cursor = db.tracks.aggregate(pipeline)
         return await cursor.to_list(length=None)
+
+    async def get_collab_report():
+        db = get_db()
+
+        pipeline = [
+            # 1. Traer información del álbum para tener el año
+            {
+                "$lookup": {
+                    "from": "albums",
+                    "localField": "album_id",
+                    "foreignField": "id",
+                    "as": "album_info"
+                }
+            },
+            {"$unwind": "$album_info"},
+
+            # 2. Calcular la década y verificar si tiene colaboradores
+            {
+                "$addFields": {
+                    "decade_start": {
+                        "$subtract": [
+                            "$album_info.release_year",
+                            {"$mod": ["$album_info.release_year", 10]}
+                        ]
+                    },
+                    "has_collaborators": {
+                        "$cond": [
+                            {"$and": [
+                                    {"$isArray": "$collaborator_ids"},
+                                {"$gt": [{"$size": "$collaborator_ids"}, 0]}
+                            ]},
+                            1, 0
+                        ]
+                    }
+                }
+            },
+
+            # 3. Agrupar por década
+            {
+                "$group": {
+                    "_id": "$decade_start",
+                    "total_tracks": {"$sum": 1},
+                    "collab_tracks": {"$sum": "$has_collaborators"},
+                    "all_collaborator_ids": {"$push": "$collaborator_ids"}
+                }
+            },
+
+            # 4. Aplanar la lista de IDs de invitados y eliminar duplicados
+            {
+                "$project": {
+                    "period": {
+                        "$concat": [
+                            {"$toString": "$_id"},
+                            "-",
+                            {"$toString": {"$add": ["$_id", 9]}}
+                        ]
+                    },
+                    "total_tracks": 1,
+                    "collab_tracks": 1,
+                    "collab_percentage": {
+                        "$round": [
+                            {"$multiply": [{"$divide": ["$collab_tracks", "$total_tracks"]}, 100]},
+                            1
+                        ]
+                    },
+                    # Convertimos la lista de listas [[1,2], [3]] en una lista plana [1,2,3]
+                    "unique_collaborator_ids": {
+                        "$reduce": {
+                            "input": "$all_collaborator_ids",
+                            "initialValue": [],
+                            "in": {"$setUnion": ["$$value", "$$this"]}
+                        }
+                    }
+                }
+            },
+
+            # 5. Buscar los nombres de los colaboradores únicos
+            {
+                "$lookup": {
+                    "from": "collaborators",
+                    "localField": "unique_collaborator_ids",
+                    "foreignField": "id",
+                    "as": "collaborators_data"
+                }
+            },
+
+            # 6. Formateo final
+            {
+                "$project": {
+                    "_id": 0,
+                    "period": 1,
+                    "total_tracks": 1,
+                    "collab_tracks": 1,
+                    "collab_percentage": 1,
+                    "collaborators": "$collaborators_data.full_name"
+                }
+            },
+            {"$sort": {"period": 1}}
+        ]
+
+        cursor = db.tracks.aggregate(pipeline)
+        return await cursor.to_list(length=None)

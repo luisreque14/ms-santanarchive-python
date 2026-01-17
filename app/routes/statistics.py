@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, Query
+
 from app.services.statistics_service import StatisticsService
 from app.models.statistics.discography import (
     LoveSongStatsResponse,
     ExecutiveSummaryResponse,
     TrackKeyStats,
-    InstrumentalStatsResponse, MusicalGenreStatsResponse
+    InstrumentalStatsResponse,
+    MusicalGenreStatsResponse, CollaboratorReportResponse,
+
 )
 from typing import List, Optional
 
@@ -40,3 +43,7 @@ async def get_genre_stats():
     if not results:
         raise HTTPException(status_code=404, detail="No se encontraron géneros")
     return results
+
+@router.get("/collaborators", response_model=List[CollaboratorReportResponse])
+async def get_collab_report():
+    return await StatisticsService.get_collab_report()

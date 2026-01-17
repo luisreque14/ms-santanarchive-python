@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
 class InstrumentalStatsResponse(BaseModel):
     album_id: Optional[int] = None
@@ -31,3 +31,10 @@ class MusicalGenreStatsResponse(BaseModel):
     genre_name: str
     track_count: int
     percentage: float
+
+class CollaboratorReportResponse(BaseModel):
+    period: str
+    total_tracks: int
+    collab_tracks: int
+    collab_percentage: float
+    collaborators: List[str]

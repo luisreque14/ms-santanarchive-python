@@ -56,3 +56,8 @@ app.include_router(media_router, prefix="/api/v1/media", tags=["Media"])
 app.include_router(composer_router, prefix="/api/v1/composers", tags=["Composition"])
 app.include_router(track_router, prefix="/api/v1/tracks", tags=["Discography"])
 app.include_router(statistics_router, prefix="/api/v1/statistics", tags=["Statistics"])
+
+#MÁS REPORTES:
+#Canciones en las que canta Santana (agregar campo Lead Vocals en Tracks (como arreglo de Ids), que haga referencia a la canción)
+#Canciones que abrieron conciertos en vivo
+#Conciertos en fechas de cumpleaños

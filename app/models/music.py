@@ -19,6 +19,7 @@ class TrackResponse(BaseModel):
     genres: List[str]
     composers: List[str]
     metadata: TrackMetadata
+    collaborators: List[str]
     
 class GenreFilterResponse(BaseModel):
     genre_name: str
