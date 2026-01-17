@@ -1,25 +1,43 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_db
 from app.repositories.performance_repository import PerformanceRepository
 from app.services.performance_service import PerformanceService
-from app.models.performance_credits import PerformanceCreditSchema
+from app.dtos.performance_credit_dto import PerformanceCreditDto # Ajustado al nombre del archivo anterior
 from typing import List
 
-router = APIRouter()
+router = APIRouter(prefix="/performance-credits", tags=["Performance Credits"])
 
 def get_performance_service(db=Depends(get_db)):
     return PerformanceService(PerformanceRepository(db))
 
-@router.post("/", status_code=201)
-async def add_credit(
-    credit: PerformanceCreditSchema, 
-    service: PerformanceService = Depends(get_performance_service)
-):
-    return await service.add_performance_credit(credit)
-
-@router.get("/concert/{concert_id}")
+@router.get(
+    "/concert/{concert_id}", 
+    response_model=List[PerformanceCreditDto],
+    # Esto fuerza el uso de serialization_alias (camelCase)
+    response_model_by_alias=True 
+)
 async def get_credits(
     concert_id: int, 
     service: PerformanceService = Depends(get_performance_service)
 ):
-    return await service.list_credits_by_concert(concert_id)
+    """
+    Obtiene todos los créditos de músicos (instrumentos y notas) para un concierto específico.
+    """
+    credits = await service.list_credits_by_concert(concert_id)
+    return credits
+
+@router.post(
+    "/", 
+    status_code=201,
+    response_model=PerformanceCreditDto,
+    response_model_by_alias=True
+)
+async def add_performance_credit(
+    credit: PerformanceCreditDto, 
+    service: PerformanceService = Depends(get_performance_service)
+):
+    """
+    Registra la participación de un músico en un concierto. 
+    Permite enviar datos en camelCase desde el frontend.
+    """
+    return await service.add_performance_credit(credit)

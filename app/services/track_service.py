@@ -1,30 +1,52 @@
 from fastapi import HTTPException
+from typing import List, Optional
 from app.repositories.track_repository import TrackRepository
-from typing import Optional
+from app.dtos.track_dto import TrackDto, GenreFilterDto
 
 class TrackService:
     def __init__(self, repository: TrackRepository):
         self.repo = repository
 
-    async def list_tracks(self, album_id: Optional[int] = None):
+    async def list_tracks(self, album_id: Optional[int] = None) -> List[TrackDto]:
+        """
+        Lista pistas filtradas opcionalmente por álbum, transformando el resultado a camelCase.
+        """
         match_stage = {"album_id": album_id} if album_id else {}
-        return await self.repo.get_tracks_with_details(match_stage)
+        tracks_db = await self.repo.get_tracks_with_details(match_stage)
+        
+        # Mapeo masivo de modelos de BD a DTOs de la API
+        return [TrackDto.model_validate(t) for t in tracks_db]
 
-    async def list_tracks_by_genre(self, genre_id: int):
+    async def list_tracks_by_genre(self, genre_id: int) -> GenreFilterDto:
+        """
+        Busca información del género y sus pistas asociadas para devolver el GenreFilterDto.
+        """
         genre_info = await self.repo.get_genre_by_id(genre_id)
         if not genre_info:
             raise HTTPException(status_code=404, detail="Genre not found")
         
         match_stage = {"genre_ids": genre_id}
-        tracks = await self.repo.get_tracks_with_details(match_stage)
+        tracks_db = await self.repo.get_tracks_with_details(match_stage)
         
-        return {
+        # Construimos el objeto de respuesta siguiendo el contrato del DTO
+        # Pydantic se encarga de mapear genre_name -> genreName y tracks -> tracks (camelCase interno)
+        response_data = {
             "genre_name": genre_info["name"],
-            "tracks": tracks
+            "tracks": tracks_db
         }
+        
+        return GenreFilterDto.model_validate(response_data)
 
-    async def list_collaborations_by_range(self, start: int, end: int):
-        # Lógica: Validar que el rango sea coherente
+    async def list_collaborations_by_range(self, start: int, end: int) -> List[TrackDto]:
+        """
+        Valida el rango de años y devuelve las pistas con colaboraciones mapeadas a DTO.
+        """
         if start > end:
-            raise HTTPException(status_code=400, detail="Start year cannot be greater than end year")
-        return await self.repo.get_tracks_by_date_range_pipeline(start, end)
+            raise HTTPException(
+                status_code=400, 
+                detail="Start year cannot be greater than end year"
+            )
+            
+        collabs_db = await self.repo.get_tracks_by_date_range_pipeline(start, end)
+        
+        return [TrackDto.model_validate(t) for t in collabs_db]

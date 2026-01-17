@@ -45,17 +45,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registro de routers (ESTO ES LO QUE HACE QUE APAREZCAN EN /DOCS)
-app.include_router(geo_router, prefix="/api/v1/geography", tags=["Geography"])
-app.include_router(musician_router, prefix="/api/v1/musicians", tags=["Musicians"])
-app.include_router(album_router, prefix="/api/v1/albums", tags=["Discography"])
-app.include_router(recording_credits_router, prefix="/api/v1/recording-credits", tags=["Recording Credits"])
-app.include_router(concert_router, prefix="/api/v1/concerts", tags=["Live Shows"])
-app.include_router(performance_credits_router, prefix="/api/v1/performance-credits", tags=["Performance Credits"])
-app.include_router(media_router, prefix="/api/v1/media", tags=["Media"])
-app.include_router(composer_router, prefix="/api/v1/composers", tags=["Composition"])
-app.include_router(track_router, prefix="/api/v1/tracks", tags=["Discography"])
-app.include_router(statistics_router, prefix="/api/v1/statistics", tags=["Statistics"])
+API_V1 = "/api/v1"
+
+app.include_router(geo_router, prefix=API_V1)
+app.include_router(musician_router, prefix=API_V1)
+app.include_router(album_router, prefix=API_V1)
+app.include_router(recording_credits_router, prefix=API_V1)
+app.include_router(concert_router, prefix=API_V1)
+app.include_router(performance_credits_router, prefix=API_V1)
+app.include_router(media_router, prefix=API_V1)
+app.include_router(composer_router, prefix=API_V1)
+app.include_router(track_router, prefix=API_V1)
+app.include_router(statistics_router, prefix=API_V1)
 
 #MÁS REPORTES:
 #Canciones en las que canta Santana (agregar campo Lead Vocals en Tracks (como arreglo de Ids), que haga referencia a la canción)

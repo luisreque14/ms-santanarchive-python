@@ -1,36 +1,39 @@
 from fastapi import HTTPException
+from typing import List, Optional
 from app.repositories.album_repository import AlbumRepository
+from app.dtos.album_dto import AlbumDto, SongDto
 
 class AlbumService:
     def __init__(self, repository: AlbumRepository):
         self.repo = repository
 
-    async def list_albums(self, era: str):
+    async def list_albums(self, era: str) -> List[AlbumDto]:
         query = {}
         if era != "all" and era.isdigit():
             start_year = int(era)
             query["release_year"] = {"$gte": start_year, "$lte": start_year + 9}
 
-        albums = await self.repo.get_albums(query)
+        # Obtenemos los modelos de la base de datos (snake_case)
+        albums_db = await self.repo.get_albums(query)
         
-        # Lógica de negocio: enriquecer datos para el frontend
-        for album in albums:
-            album["cover"] = album.get("cover", "/images/default-album.jpg")
-        return albums
+        # Mapeamos la lista de resultados al DTO con camelCase
+        # model_validate se encarga de convertir release_year -> releaseYear, etc.
+        return [AlbumDto.model_validate(album) for album in albums_db]
 
-    async def get_album_details(self, album_id: int):
-        album = await self.repo.get_album_by_id(album_id)
-        if not album:
+    async def get_album_details(self, album_id: int) -> AlbumDto:
+        album_db = await self.repo.get_album_by_id(album_id)
+        if not album_db:
             raise HTTPException(status_code=404, detail="Album not found")
-        return album
+        
+        return AlbumDto.model_validate(album_db)
 
-    async def create_new_album(self, album_schema):
+    async def create_new_album(self, album_schema) -> AlbumDto:
+        # Verificamos existencia usando el repo
         if await self.repo.get_album_by_id(album_schema.id):
             raise HTTPException(status_code=400, detail="Album ID already exists")
-        return await self.repo.create_album(album_schema.model_dump())
-
-    async def get_formatted_tracks(self, album_id: int):
-        # Primero verificamos si el álbum existe
-        if not await self.repo.get_album_by_id(album_id):
-            raise HTTPException(status_code=404, detail="Album not found")
-        return await self.repo.get_tracks_by_album(album_id)
+        
+        # Guardamos en la BD usando el dump del schema (snake_case)
+        created_album = await self.repo.create_album(album_schema.model_dump())
+        
+        # Retornamos el DTO (camelCase)
+        return AlbumDto.model_validate(created_album)

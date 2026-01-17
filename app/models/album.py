@@ -16,6 +16,7 @@ class AlbumSchema(BaseModel):
     release_year: int = Field(..., ge=1900, le=2100)
     label: str
     producer: str
+    cover: str
     studio: Optional[str] = None
     tracklist: List[SongSchema]
 
@@ -28,6 +29,7 @@ class AlbumSchema(BaseModel):
                 "release_year": 1970,
                 "label": "Columbia",
                 "producer": "Fred Catero, Santana",
+                "cover": "image.jpg",
                 "studio": "Wally Heider Recording",
                 "tracklist": [
                     {

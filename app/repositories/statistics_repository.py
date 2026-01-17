@@ -33,20 +33,32 @@ class StatisticsRepository:
     @staticmethod
     async def get_key_stats(match_query: dict, album_id: Optional[int]) -> List[dict]:
         db = get_db()
+        
         pipeline = [
-            {"$match": match_query},
-            {"$group": {"_id": {"aid": "$album_id", "k": "$metadata.key"}, "count": {"$sum": 1}}},
-            {"$lookup": {"from": "albums", "localField": "_id.aid", "foreignField": "id", "as": "info"}},
-            {"$unwind": {"path": "$info", "preserveNullAndEmptyArrays": True}},
-            {"$project": {
-                "album_id": {"$ifNull": ["$_id.aid", 0]},
-                "key": "$_id.k",
-                "count": 1,
-                "album_name": {"$cond": [album_id is None, "Full Discography", "$info.title"]},
-                "_id": 0
-            }},
-            {"$sort": {"count": -1}}
-        ]
+                {"$match": match_query},
+                {"$group": {"_id": {"aid": "$album_id", "k": "$metadata.key"}, "count": {"$sum": 1}}},
+                {"$lookup": {"from": "albums", "localField": "_id.aid", "foreignField": "id", "as": "info"}},
+                {"$unwind": {"path": "$info", "preserveNullAndEmptyArrays": True}},
+                {"$project": {
+                    "album_id": {"$ifNull": ["$_id.aid", 0]},
+                    "key": "$_id.k",
+                    "count": 1,
+                    # Lógica corregida:
+                    "album_name": {
+                        "$cond": {
+                            "if": {"$and": [
+                                {"$eq": [album_id, None]}, # Si el parámetro de búsqueda fue None
+                                {"$eq": ["$_id.aid", None]} # Y el registro no tiene album_id
+                            ]},
+                            "then": "Full Discography",
+                            "else": {"$ifNull": ["$info.title", "Unknown Album"]}
+                        }
+                    },
+                    "_id": 0
+                }},
+                {"$sort": {"count": -1}}
+            ]
+        
         return await db.tracks.aggregate(pipeline).to_list(None)
 
     @staticmethod
