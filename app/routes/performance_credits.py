@@ -1,35 +1,25 @@
-from fastapi import APIRouter, HTTPException
-from app.models.performance_credits import PerformanceCreditSchema
+from fastapi import APIRouter, Depends
 from app.database import get_db
+from app.repositories.performance_repository import PerformanceRepository
+from app.services.performance_service import PerformanceService
+from app.models.performance_credits import PerformanceCreditSchema
+from typing import List
 
 router = APIRouter()
 
+def get_performance_service(db=Depends(get_db)):
+    return PerformanceService(PerformanceRepository(db))
 
 @router.post("/", status_code=201)
-async def add_performance_credit(credit: PerformanceCreditSchema):
-    db = get_db()
-
-    if db is None:
-        raise HTTPException(status_code=500, detail="La base de datos no está conectada")
-
-    # 1. Validar Concierto
-    if not await db.concerts.find_one({"id": credit.concert_id}):
-        raise HTTPException(status_code=404, detail="Concert not found")
-
-    # 2. Validar Músico
-    if not await db.musicians.find_one({"id": credit.musician_id}):
-        raise HTTPException(status_code=404, detail="Musician not found")
-
-    await db.performance_credits.insert_one(credit.model_dump())
-    return {"message": "Performance credit registered successfully"}
-
+async def add_credit(
+    credit: PerformanceCreditSchema, 
+    service: PerformanceService = Depends(get_performance_service)
+):
+    return await service.add_performance_credit(credit)
 
 @router.get("/concert/{concert_id}")
-async def get_credits_by_concert(concert_id: int):
-    db = get_db()
-
-    if db is None:
-        raise HTTPException(status_code=500, detail="La base de datos no está conectada")
-
-    cursor = db.performance_credits.find({"concert_id": concert_id}, {"_id": 0})
-    return await cursor.to_list(length=100)
+async def get_credits(
+    concert_id: int, 
+    service: PerformanceService = Depends(get_performance_service)
+):
+    return await service.list_credits_by_concert(concert_id)
