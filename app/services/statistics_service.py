@@ -1,29 +1,52 @@
+from typing import Optional, List
 from app.repositories.statistics_repository import StatisticsRepository
-from typing import Optional
 
 class StatisticsService:
-    def __init__(self, repository: StatisticsRepository):
-        self.repo = repository
+    """
+    Business logic layer for discography statistics.
+    Orchestrates repository calls and ensures data consistency.
+    """
 
-    async def get_instrumental_stats(self, album_id: Optional[int] = None):
+    @staticmethod
+    async def get_instrumental_logic(album_id: Optional[int] = None):
+        # Business Logic: Determine the filter scope
         match_query = {"album_id": album_id} if album_id else {}
-        result = await self.repo.run_instrumental_aggregation(match_query, album_id is not None)
         
-        if not result: return None
+        results = await StatisticsRepository.get_instrumental_stats(match_query, album_id)
         
-        data = result[0]
-        # Lógica de negocio: Formatear el nombre si es global
-        if album_id is None:
-            data["album_name"] = "Discografía Completa"
-        return data
+        # Ensure we return a single object or None
+        return results[0] if results else None
 
-    async def get_executive_summary(self):
-        result = await self.repo.run_executive_summary_pipeline()
-        if not result or result[0].get("total_tracks") is None:
+    @staticmethod
+    async def get_key_stats_logic(album_id: Optional[int] = None):
+        match_query = {"album_id": album_id} if album_id else {}
+        
+        # Returns a list of stats per key
+        return await StatisticsRepository.get_key_stats(match_query, album_id)
+
+    @staticmethod
+    async def get_executive_summary_logic():
+        results = await StatisticsRepository.get_executive_summary()
+        
+        # Validation: Ensure we have data before sending to the response model
+        if not results or results[0].get("total_tracks") is None:
             return None
-        return result[0]
+            
+        return results[0]
 
-    async def get_collaboration_report(self):
-        # Aquí llamarías al repositorio y podrías añadir lógica extra
-        # como redondear porcentajes o filtrar colaboradores nulos
-        return await self.repo.run_collab_report_pipeline()
+    @staticmethod
+    async def get_love_song_stats_logic():
+        results = await StatisticsRepository.get_love_song_stats()
+        
+        return results[0] if results else None
+
+    @staticmethod
+    async def get_genre_stats_logic():
+        # Pure orchestration: results are already formatted by the repository
+        return await StatisticsRepository.get_genre_stats()
+
+    @staticmethod
+    async def get_collab_report_logic():
+        # Historical reports usually don't need additional logic, 
+        # but here you could filter by specific decades if needed.
+        return await StatisticsRepository.get_collab_report()

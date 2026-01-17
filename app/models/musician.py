@@ -1,32 +1,38 @@
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ConfigDict, ValidationError
 from typing import List, Optional
 from datetime import date
 
 class RoleSchema(BaseModel):
-    id: int
-    name: str
+    id: int = Field(..., gt=0)
+    name: str = Field(..., min_length=2)
     category: Optional[str] = None
 
+    model_config = ConfigDict(from_attributes=True)
+
 class MusicianSchema(BaseModel):
-    id: int
-    first_name: str
-    last_name: str
+    id: int = Field(..., gt=0)
+    first_name: str = Field(..., min_length=2)
+    last_name: str = Field(..., min_length=2)
+    # Alias "apelativo" se mantiene para compatibilidad con datos externos
     nickname: Optional[str] = Field(None, alias="apelativo")
     country_id: int
     start_date: date
     end_date: Optional[date] = None
-    roles: List[int]
+    roles: List[int] = Field(default_factory=list)
     bio: Optional[str] = None
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True  # Sustituye al antiguo 'allow_population_by_field_name'
+    )
 
-
-# Schema contenedor para validación masiva
 class SantanaBandData(BaseModel):
     roles: List[RoleSchema]
     musicians: List[MusicianSchema]
 
+    model_config = ConfigDict(from_attributes=True)
+
+# --- SCRIPT DE VALIDACIÓN (Actualizado) ---
 
 raw_data = {
     "roles": [
@@ -60,34 +66,29 @@ raw_data = {
     ]
 }
 
-
-# --- SCRIPT DE VALIDACIÓN Y PRUEBA ---
-
 def validate_and_show():
     try:
+        # Pydantic v2 maneja la instanciación igual, pero es más rápido
         band_data = SantanaBandData(**raw_data)
-        print("✅ Validación exitosa: Los datos cumplen con el schema.\n")
+        print("✅ Validation successful: Data matches the schema.\n")
 
-        # Crear un mapa de roles para búsqueda rápida por ID
         role_map = {r.id: r.name for r in band_data.roles}
 
-        print("--- Listado de Músicos ---")
+        print("--- Musicians List ---")
         for m in band_data.musicians:
-            # Obtener nombres de roles usando los IDs
-            role_names = [role_map.get(rid) for rid in m.roles]
-
+            role_names = [role_map.get(rid, "Unknown") for rid in m.roles]
             status = "Present" if m.end_date is None else str(m.end_date)
+            # Gracias a populate_by_name=True, podemos usar m.nickname
             nickname_str = f" ({m.nickname})" if m.nickname else ""
 
-            print(f"Músico: {m.first_name} {m.last_name}{nickname_str}")
+            print(f"Musician: {m.first_name} {m.last_name}{nickname_str}")
             print(f"  Roles: {', '.join(role_names)}")
-            print(f"  Periodo: {m.start_date} -> {status}")
+            print(f"  Period: {m.start_date} -> {status}")
             print("-" * 30)
 
     except ValidationError as e:
-        print("❌ Error de validación:")
-        print(e.json())
-
+        print("❌ Validation Error:")
+        print(e.json(indent=2))
 
 if __name__ == "__main__":
     validate_and_show()

@@ -1,15 +1,20 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 
 class PerformanceCreditSchema(BaseModel):
-    concert_id: int
-    musician_id: int
-    instruments: List[str] = Field(..., example=["Guitarra", "Vocales"])
-    is_substitute: bool = False  # Para marcar si fue un músico de reemplazo esa noche
-    notes: Optional[str] = None  # Ejemplo: "Invitado especial solo en Soul Sacrifice"
+    concert_id: int = Field(..., description="Reference to the concert ID")
+    musician_id: int = Field(..., description="Reference to the musician ID")
+    instruments: List[str] = Field(
+        ..., 
+        min_length=1, 
+        description="List of instruments played during this performance"
+    )
+    is_substitute: bool = Field(False, description="Flag for replacement musicians")
+    notes: Optional[str] = Field(None, max_length=500)
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "concert_id": 1,
                 "musician_id": 5,
@@ -18,3 +23,4 @@ class PerformanceCreditSchema(BaseModel):
                 "notes": "Miembro oficial de la gira"
             }
         }
+    )

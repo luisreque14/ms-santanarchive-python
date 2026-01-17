@@ -1,18 +1,19 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
 class ConcertSchema(BaseModel):
     id: int = Field(..., description="Sequential ID")
-    date: datetime  # Incluye fecha y hora si se conoce
-    tour_name: Optional[str] = "No Tour / One-off Show"
-    venue: str  # Ej: "Woodstock", "Madison Square Garden"
-    city_id: int
+    date: datetime = Field(..., description="Date and time of the concert (ISO 8601)")
+    tour_name: Optional[str] = Field("No Tour / One-off Show", min_length=3)
+    venue: str = Field(..., min_length=2)
+    city_id: int = Field(..., description="Reference to the city ID")
     is_festival: bool = False
-    setlist: List[str] = [] # Lista de títulos de canciones tocadas
+    setlist: List[str] = Field(default_factory=list, description="List of track titles performed")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "date": "1969-08-16T14:00:00",
@@ -23,3 +24,4 @@ class ConcertSchema(BaseModel):
                 "setlist": ["Waiting", "Evil Ways", "Soul Sacrifice"]
             }
         }
+    )

@@ -61,3 +61,4 @@ app.include_router(statistics_router, prefix="/api/v1/statistics", tags=["Statis
 #Canciones en las que canta Santana (agregar campo Lead Vocals en Tracks (como arreglo de Ids), que haga referencia a la canción)
 #Canciones que abrieron conciertos en vivo
 #Conciertos en fechas de cumpleaños
+#Duración de álbumes, canción más corta, canción más extensa

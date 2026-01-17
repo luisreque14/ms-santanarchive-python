@@ -1,31 +1,34 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 
 class SongSchema(BaseModel):
-    track_number: int
-    title: str
-    duration: str  # Formato "MM:SS"
+    track_number: int = Field(..., gt=0)
+    title: str = Field(..., min_length=1)
+    duration: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="Format MM:SS")
     composers: List[str]
-    side: Optional[str] = "A"  # Para los vinilos: A o B
+    side: Optional[str] = Field("A", pattern=r"^[AB]$")
+
+    model_config = ConfigDict(from_attributes=True)
 
 class AlbumSchema(BaseModel):
-    id: int
-    title: str
-    release_year: int
-    label: str  # Ej: Columbia, Arista
+    id: int = Field(..., description="Unique album identifier")
+    title: str = Field(..., min_length=1)
+    release_year: int = Field(..., ge=1900, le=2100)
+    label: str
     producer: str
     studio: Optional[str] = None
-    # Aquí anidamos la lista de canciones
     tracklist: List[SongSchema]
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "title": "Abraxas",
                 "release_year": 1970,
                 "label": "Columbia",
                 "producer": "Fred Catero, Santana",
+                "studio": "Wally Heider Recording",
                 "tracklist": [
                     {
                         "track_number": 1,
@@ -44,3 +47,4 @@ class AlbumSchema(BaseModel):
                 ]
             }
         }
+    )

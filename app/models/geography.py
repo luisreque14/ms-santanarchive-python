@@ -1,28 +1,31 @@
-from pydantic import BaseModel, Field
-from typing import Optional # Importante para campos opcionales
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional
 
 class ContinentSchema(BaseModel):
-    id: int = Field(..., description="Sequential ID")
-    code: str = Field(..., min_length=2, max_length=5)
+    id: int = Field(..., description="Sequential ID for the continent")
+    code: str = Field(..., min_length=2, max_length=5, description="Continent code (e.g., AM, EU)")
     name: str = Field(..., min_length=3)
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "code": "AM",
                 "name": "Americas"
             }
         }
+    )
 
 class CountrySchema(BaseModel):
     id: int
     code: str = Field(..., min_length=2, max_length=3)
-    continent_id: int  # Este debe coincidir con un ID de la colección continents
-    name: str
+    continent_id: int
+    name: str = Field(..., min_length=2)
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "code": "MX",
@@ -30,20 +33,42 @@ class CountrySchema(BaseModel):
                 "name": "Mexico"
             }
         }
+    )
 
 class StateSchema(BaseModel):
     id: Optional[int] = Field(None, description="Sequential ID")
     country_id: int
     code: str = Field(..., min_length=2, max_length=5)
-    name: str
+    name: str = Field(..., min_length=2)
 
-    class Config:
-        from_attributes = True  # Útil para que funcione bien con MongoDB
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 10,
+                "country_id": 1,
+                "code": "TX",
+                "name": "Texas"
+            }
+        }
+    )
 
 class CitySchema(BaseModel):
     id: int
     country_id: int
-    state_id: Optional[int] = None  # Puede ser nulo si la ciudad no tiene estado
+    state_id: Optional[int] = None
     code: str = Field(..., min_length=2, max_length=5)
-    name: str
-    country_id: int
+    name: str = Field(..., min_length=2)
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 100,
+                "country_id": 1,
+                "state_id": 10,
+                "code": "AUST",
+                "name": "Austin"
+            }
+        }
+    )
