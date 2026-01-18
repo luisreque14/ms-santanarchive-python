@@ -18,14 +18,35 @@ from app.routes.composers_routes import router as composer_router
 from app.routes.tracks_routes import router as track_router
 from app.routes.statistics_routes import router as statistics_router
 
-load_dotenv()
+env_type = os.getenv("APP_ENV", "development")
+load_dotenv(".env.production" if env_type == "production" else ".env")
 
+raw_origins = os.getenv("ALLOWED_ORIGINS")
+origins = [o.strip() for o in raw_origins.split(",")]
+
+if not raw_origins:
+    # Error crítico: Detiene la ejecución si no hay configuración
+    raise RuntimeError(
+        f"❌ SEGURIDAD: La variable ALLOWED_ORIGINS no está definida en el entorno {env_type.upper()}."
+    )
+    
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    current_env = os.getenv("APP_ENV", "development")
+    
+    if current_env == "production":
+        print("\n" + "="*40)
+        print("⚠️  RUNNING IN PRODUCTION MODE")
+        print("="*40 + "\n")
+    else:
+        print("\n" + "-"*40)
+        print("🛠️  RUNNING IN DEVELOPMENT MODE")
+        print("-"*40 + "\n")
+        
     print("🚀 Iniciando conexión a MongoDB...")
 
     uri = os.getenv("MONGODB_URL")
-    db_name = os.getenv("DB_NAME")
+    db_name = os.getenv("MONGODB_NAME")
     await connect_to_mongo(uri, db_name)
 
     if db_instance.db is not None:
@@ -39,11 +60,6 @@ async def lifespan(app: FastAPI):
         print("🔌 Conexión a MongoDB cerrada")
 
 app = FastAPI(title="Santana Archive", lifespan=lifespan)
-
-origins = [
-    "http://localhost:3000",      # Tu Next.js/React local
-    "https://tu-web-santana.com", # Tu dominio en producción
-]
 
 # Configuración de CORS
 app.add_middleware(

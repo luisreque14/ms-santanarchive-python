@@ -5,7 +5,7 @@ import os
 # 1. Definimos el nombre del Header y el Secreto
 API_KEY_NAME = "X-Santana-App-Token"
 # En producción, usa una cadena larga y aleatoria en tu .env
-API_KEY = os.getenv("API_KEY_INTERNAL", "Santana_Archive_2026_Secret_Key")
+API_KEY = os.getenv("API_KEY_INTERNAL")
 
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
