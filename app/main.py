@@ -4,16 +4,16 @@ from app.database import connect_to_mongo, db_instance
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
-from app.routes.geography import router as geo_router
-from app.routes.musicians import router as musician_router
-from app.routes.albums import router as album_router
-from app.routes.recording_credits import router as recording_credits_router
-from app.routes.concerts import router as concert_router
-from app.routes.performance_credits import router as performance_credits_router
-from app.routes.media import router as media_router
-from app.routes.composers import router as composer_router
-from app.routes.tracks import router as track_router
-from app.routes.statistics import router as statistics_router
+from app.routes.geography_routes import router as geo_router
+from app.routes.musicians_routes import router as musician_router
+from app.routes.albums_routes import router as album_router
+from app.routes.recording_credits_routes import router as recording_credits_router
+from app.routes.concerts_routes import router as concert_router
+from app.routes.performance_credits_routes import router as performance_credits_router
+from app.routes.media_routes import router as media_router
+from app.routes.composers_routes import router as composer_router
+from app.routes.tracks_routes import router as track_router
+from app.routes.statistics_routes import router as statistics_router
 
 load_dotenv()
 
