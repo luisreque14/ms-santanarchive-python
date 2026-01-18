@@ -16,3 +16,4 @@ venv/
 # pero si prefieres limpieza total, ignora toda la carpeta.
 
 .env
+.env.production
