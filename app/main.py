@@ -78,8 +78,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"], # Restringe solo a lo que necesitas
-    allow_headers=["X-Santana-App-Token", "Content-Type"], # Solo permitimos tu header personalizado
+    allow_methods=["GET", "POST", "OPTIONS"], # Restringe solo a lo que necesitas
+    allow_headers=["*"], # Es más seguro dejar que el navegador maneje los headers
 )
 
 API_V1 = "/api/v1"
