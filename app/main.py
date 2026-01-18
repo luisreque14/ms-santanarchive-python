@@ -4,6 +4,9 @@ from app.database import connect_to_mongo, db_instance
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
+from app.core.security import validate_layered_security
+from fastapi import Depends
+
 from app.routes.geography_routes import router as geo_router
 from app.routes.musicians_routes import router as musician_router
 from app.routes.albums_routes import router as album_router
@@ -37,26 +40,32 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Santana Archive", lifespan=lifespan)
 
+origins = [
+    "http://localhost:3000",      # Tu Next.js/React local
+    "https://tu-web-santana.com", # Tu dominio en producción
+]
+
 # Configuración de CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST"], # Restringe solo a lo que necesitas
+    allow_headers=["X-Santana-App-Token", "Content-Type"], # Solo permitimos tu header personalizado
 )
 
 API_V1 = "/api/v1"
 
-app.include_router(geo_router, prefix=API_V1)
-app.include_router(musician_router, prefix=API_V1)
-app.include_router(album_router, prefix=API_V1)
-app.include_router(recording_credits_router, prefix=API_V1)
-app.include_router(concert_router, prefix=API_V1)
-app.include_router(performance_credits_router, prefix=API_V1)
-app.include_router(media_router, prefix=API_V1)
-app.include_router(composer_router, prefix=API_V1)
-app.include_router(track_router, prefix=API_V1)
-app.include_router(statistics_router, prefix=API_V1)
+app.include_router(geo_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(musician_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(album_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(recording_credits_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(concert_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(performance_credits_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(media_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(composer_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(track_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(statistics_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 
 #MÁS REPORTES:
 #Canciones en las que canta Santana (agregar campo Lead Vocals en Tracks (como arreglo de Ids), que haga referencia a la canción)
