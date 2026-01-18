@@ -1,14 +1,12 @@
 import asyncio
-import os
 import pandas as pd
 from dotenv import load_dotenv
-from app.database import connect_to_mongo, get_db, db_instance
+from scripts.common.db_utils import db_manager
 
 load_dotenv()
 
 async def sync_master_data(file_path: str):
-    await connect_to_mongo(os.getenv("MONGODB_URL"), os.getenv("DB_NAME"))
-    db = get_db()
+    db = await db_manager.connect()
 
     # 1. Mapas de referencia
     genre_map = {g["name"].lower().strip(): g["id"] for g in await db.genres.find().to_list(length=None)}
@@ -78,8 +76,7 @@ async def sync_master_data(file_path: str):
     print(f"✨ Registros nuevos creados: {stats['nuevos']}")
     print(f"🆙 Registros existentes actualizados: {stats['actualizados']}")
 
-    if db_instance.client:
-        db_instance.client.close()
+    await db_manager.close()
 
 if __name__ == "__main__":
     asyncio.run(sync_master_data("../santana_master.xlsx"))

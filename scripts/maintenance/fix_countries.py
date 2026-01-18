@@ -1,12 +1,6 @@
 import asyncio
 import httpx
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
-
-# --- CONFIGURACIÓN ---
-# Reemplaza con tu cadena de conexión de Atlas
-MONGO_URI = "mongodb+srv://admin:4dm1ns4nt4n4@cluster0.adwc7ir.mongodb.net/?appName=Cluster0"
-DB_NAME = "santana_archive"
+from scripts.common.db_utils import db_manager
 
 # Mapeo según los IDs que ya tengas en tu colección de continentes
 CONTINENT_MAP = {
@@ -20,9 +14,7 @@ CONTINENT_MAP = {
 
 
 async def run_enrichment():
-    # Conexión a Atlas
-    client = AsyncIOMotorClient(MONGO_URI)
-    db = client[DB_NAME]
+    db = await db_manager.connect()
 
     # 1. Obtenemos los países
     print(f"📡 Conectando a MongoDB Atlas...")
@@ -70,6 +62,7 @@ async def run_enrichment():
             await asyncio.sleep(0.3)
 
     print("\n✨ Proceso completado en la nube.")
+    await db_manager.close()
 
 
 if __name__ == "__main__":

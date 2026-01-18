@@ -1,26 +1,13 @@
 import asyncio
-import os
 from dotenv import load_dotenv
-
-# Importamos tu infraestructura
-from app.database import connect_to_mongo, get_db, db_instance
-from app.models.musician import RoleSchema  # Asegúrate de tener este schema definido
+from scripts.common.db_utils import db_manager
 
 load_dotenv()
 
 
 async def seed_roles():
-    # 1. Obtener configuración del entorno
-    uri = os.getenv("MONGODB_URL")
-    db_name = os.getenv("DB_NAME")
-
-    if not uri or not db_name:
-        print("❌ Error: MONGODB_URL o DB_NAME no configurados.")
-        return
-
     # 2. Conectar
-    await connect_to_mongo(uri, db_name)
-    db = get_db()
+    db = await db_manager.connect()
 
     # 3. Lista de roles basada en nuestra investigación previa
     roles_data = [
@@ -58,9 +45,8 @@ async def seed_roles():
     print(f"   - Roles creados: {stats['nuevos']}")
     print(f"   - Roles actualizados: {stats['actualizados']}")
 
-    if db_instance.client:
-        db_instance.client.close()
-        print("🔌 Conexión cerrada.")
+    await db_manager.close()
+    print("🔌 Conexión cerrada.")
 
 
 if __name__ == "__main__":

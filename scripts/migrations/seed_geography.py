@@ -1,10 +1,9 @@
 import asyncio
-from app.database import connect_to_mongo, get_db, db_instance  # Importa db_instance
+from scripts.common.db_utils import db_manager
 
 
 async def seed_continents():
-    await connect_to_mongo()
-    db = get_db()
+    db = await db_manager.connect()
 
     continents = [
         {"id": 1, "code": "AM", "name": "Americas"},
@@ -23,7 +22,7 @@ async def seed_continents():
         print(f"Procesando {continent['name']}: {result.modified_count} actualizados, {result.upserted_id} creados")
 
     # Cerramos la conexión manualmente al terminar
-    db_instance.client.close()
+    await db_manager.close()
     print("Conexión cerrada.")
 
 

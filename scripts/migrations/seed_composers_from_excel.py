@@ -1,25 +1,9 @@
 import asyncio
-import os
 import pandas as pd
-from dotenv import load_dotenv
-
-# Importamos tu infraestructura de base de datos
-from app.database import connect_to_mongo, get_db, db_instance
-
-load_dotenv()
-
+from scripts.common.db_utils import db_manager
 
 async def seed_composers_from_excel(file_path: str):
-    # 1. Conexión con tus variables del .env
-    uri = os.getenv("MONGODB_URL")
-    db_name = os.getenv("DB_NAME")
-
-    if not uri or not db_name:
-        print("❌ Error: MONGODB_URL o DB_NAME no encontrados en el .env")
-        return
-
-    await connect_to_mongo(uri, db_name)
-    db = get_db()
+    db = await db_manager.connect()
 
     # 2. Caché de Países: Mapeamos Nombre -> ID
     # Esto permite validar si el país existe en la BD rápidamente
@@ -83,9 +67,7 @@ async def seed_composers_from_excel(file_path: str):
     print(f"Registrados sin país: {stats['sin_pais']}")
     print("=" * 30)
 
-    if db_instance.client:
-        db_instance.client.close()
-        print("🔌 Conexión cerrada.")
+    await db_manager.close()
 
 
 if __name__ == "__main__":

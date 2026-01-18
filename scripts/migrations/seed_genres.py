@@ -1,23 +1,13 @@
 import asyncio
-import os
 from dotenv import load_dotenv
 
 # Importamos tu infraestructura de base de datos
-from app.database import connect_to_mongo, get_db, db_instance
+from scripts.common.db_utils import db_manager
 
 load_dotenv()
 
 async def seed_genres():
-    # 1. Conexión usando tus variables exactas del .env
-    uri = os.getenv("MONGODB_URL")
-    db_name = os.getenv("DB_NAME")
-
-    if not uri or not db_name:
-        print("❌ Error: MONGODB_URL o DB_NAME no encontrados en el .env")
-        return
-
-    await connect_to_mongo(uri, db_name)
-    db = get_db()
+    db = await db_manager.connect()
 
     # 2. Lista de géneros únicos (procesada y limpia)
     genres_list = [
@@ -64,9 +54,7 @@ async def seed_genres():
     print(f"\n✅ Proceso finalizado.")
     print(f"Nuevos: {stats['nuevos']} | Ya existían: {stats['omitidos']}")
 
-    if db_instance.client:
-        db_instance.client.close()
-        print("🔌 Conexión cerrada.")
+    await db_manager.close()
 
 
 if __name__ == "__main__":

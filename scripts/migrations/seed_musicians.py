@@ -1,13 +1,11 @@
 import asyncio
 import pandas as pd
-import os
 from datetime import datetime
 from pydantic import ValidationError
-from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+from scripts.common.db_utils import db_manager
 
 # Importación de tu infraestructura
-from app.database import connect_to_mongo, get_db, db_instance
 from app.models.musician import MusicianSchema
 
 # Cargamos variables de entorno (asegúrate de tener python-dotenv instalado)
@@ -28,16 +26,7 @@ def get_role_ids(instrument_str, role_map):
 
 
 async def load_excel_to_mongo(file_path):
-    # 1. Obtener credenciales del entorno
-    uri = os.getenv("MONGODB_URL")
-    db_name = os.getenv("DB_NAME")
-
-    if not uri or not db_name:
-        print("❌ Error: MONGODB_URL o DB_NAME no están definidos en el .env")
-        return
-
-    await connect_to_mongo(uri, db_name)
-    db = get_db()
+    db = await db_manager.connect()
 
     # 3. Mapeo de roles desde la DB
     role_map = {}
@@ -115,7 +104,7 @@ async def load_excel_to_mongo(file_path):
 
     # Resumen y cierre
     print(f"\n✅ Finalizado. Nuevos: {stats['nuevos']} | Existentes: {stats['existentes']}")
-    db_instance.client.close()
+    await db_manager.close()
 
 
 if __name__ == "__main__":
