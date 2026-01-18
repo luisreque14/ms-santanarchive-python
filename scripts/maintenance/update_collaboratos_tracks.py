@@ -1,14 +1,8 @@
 import pandas as pd
 import asyncio
-import os
 from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
 import re
-
-load_dotenv()
-
-MONGO_URL = os.getenv("MONGODB_URL")
-DB_NAME = os.getenv("DB_NAME")
+from scripts.common.db_utils import db_manager
 
 async def get_next_sequence_value(db, sequence_name):
     """Genera IDs incrementales para la colección collaborators"""
@@ -38,9 +32,7 @@ async def get_or_create_collaborator(db, full_name: str):
     return new_id
 
 async def process_excel_to_mongo(file_path: str):
-    client = AsyncIOMotorClient(MONGO_URL)
-    db = client[DB_NAME]
-
+    db = await db_manager.connect()
     # Leer Excel
     df = pd.read_excel(file_path)
     df.columns = df.columns.str.strip()
@@ -97,7 +89,7 @@ async def process_excel_to_mongo(file_path: str):
         else:
             print(f"ℹ️ Track '{song_title}' no requirió cambios o no fue encontrado.")
 
-    client.close()
+    await db_manager.close()
 
 if __name__ == "__main__":
     # Asegúrate de que el archivo Excel existe en la ruta

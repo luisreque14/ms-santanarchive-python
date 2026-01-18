@@ -3,20 +3,12 @@ import os
 import requests
 import urllib.parse
 import re
-from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
+from scripts.common.db_utils import db_manager
 
-# Cargar variables del archivo .env
-load_dotenv()
-
-# CONFIGURACIÓN DESDE .ENV
-MONGODB_URL = os.getenv("MONGODB_URL")
-DB_NAME = os.getenv("DB_NAME")
 FRONTEND_PUBLIC_PATH = "../frontend/public/images/albums"
 
 if not os.path.exists(FRONTEND_PUBLIC_PATH):
     os.makedirs(FRONTEND_PUBLIC_PATH)
-
 
 def slugify(text):
     text = text.lower()
@@ -27,8 +19,7 @@ def slugify(text):
 
 async def descargar_imagenes_atlas():
     # Conexión a MongoDB Atlas
-    client = AsyncIOMotorClient(MONGODB_URL)
-    db = client[DB_NAME]
+    db = await db_manager.connect()
 
     print("☁️ Conectado a MongoDB Atlas...")
 
@@ -74,7 +65,7 @@ async def descargar_imagenes_atlas():
                 print(f"❌ Error descargando {title}: {e}")
 
     finally:
-        client.close()
+        await db_manager.close()
         print("\n✨ Proceso finalizado en la nube.")
 
 

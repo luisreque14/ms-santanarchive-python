@@ -1,14 +1,12 @@
 import asyncio
-import os
-from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+from scripts.common.db_utils import db_manager
 
 load_dotenv()
 
 
 async def clean_duplicate_guests():
-    client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
-    db = client[os.getenv("DB_NAME")]
+    db = await db_manager.connect()
 
     print("🔍 Buscando duplicados en la colección 'guests'...")
 
@@ -64,7 +62,7 @@ async def clean_duplicate_guests():
         await db.guests.delete_many({"id": {"$in": duplicate_ids}})
 
     print(f"✨ Limpieza completada. Se procesaron {len(duplicates)} grupos de duplicados.")
-    client.close()
+    await db_manager.close()
 
 
 if __name__ == "__main__":

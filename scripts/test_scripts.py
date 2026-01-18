@@ -1,17 +1,8 @@
 import asyncio
-import os
-from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
-
-load_dotenv()
-
-MONGO_URL = os.getenv("MONGODB_URL")
-DB_NAME = os.getenv("DB_NAME")
-
+from scripts.common.db_utils import db_manager
 
 async def audit_collaborator_fields():
-    client = AsyncIOMotorClient(MONGO_URL)
-    db = client[DB_NAME]
+    db = await db_manager.connect()
 
     # Buscamos documentos donde collaborator_ids existe pero NO es un array
     cursor = db.tracks.find({
@@ -32,10 +23,10 @@ async def audit_collaborator_fields():
             print(
                 f"- Canción: {doc.get('title')} | ID: {doc.get('_id')} | Valor actual: {actual_value} (Tipo: {type(actual_value)})")
 
+    await db_manager.close()
 
 async def detect_type_mismatch():
-    client = AsyncIOMotorClient(MONGO_URL)
-    db = client[DB_NAME]
+    db = await db_manager.connect()
 
     pipeline = [
         {
@@ -63,8 +54,7 @@ async def detect_type_mismatch():
 
 
 async def run_diagnostic():
-    client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
-    db = client[os.getenv("DB_NAME")]
+    db = await db_manager.connect()
 
     print("🔍 Iniciando diagnóstico de tipos de datos...")
 
@@ -102,7 +92,7 @@ async def run_diagnostic():
             print(f"   - Ejemplo: '{example['title']}' | Valor actual: {example['value']}")
 
     print("\n--------------------------------------------")
-    client.close()
+    await db_manager.close()
 
 if __name__ == "__main__":
     print("Inicia")
