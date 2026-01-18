@@ -5,7 +5,7 @@ import re
 from scripts.common.db_utils import db_manager
 
 async def get_next_sequence_value(db, sequence_name):
-    """Genera IDs incrementales para la colección collaborators"""
+    """Genera IDs incrementales para la colección guest_artists"""
     result = await db.counters.find_one_and_update(
         {"_id": sequence_name},
         {"$inc": {"sequence_value": 1}},
@@ -14,20 +14,20 @@ async def get_next_sequence_value(db, sequence_name):
     )
     return result["sequence_value"]
 
-async def get_or_create_collaborator(db, full_name: str):
+async def get_or_create_guest_artist(db, full_name: str):
     """Busca un colaborador o lo crea si no existe (Case Insensitive)"""
     name_clean = full_name.strip()
     if not name_clean: return None
 
-    # Buscar existente en la colección 'collaborators'
-    collaborator = await db.collaborators.find_one({"full_name": {"$regex": f"^{name_clean}$", "$options": "i"}})
+    # Buscar existente en la colección 'guest_artists'
+    guest_artist = await db.guest_artists.find_one({"full_name": {"$regex": f"^{name_clean}$", "$options": "i"}})
 
-    if collaborator:
-        return collaborator["id"]
+    if guest_artist:
+        return guest_artist["id"]
 
     # Crear nuevo colaborador
-    new_id = await get_next_sequence_value(db, "collaborator_id")
-    await db.collaborators.insert_one({"id": new_id, "full_name": name_clean})
+    new_id = await get_next_sequence_value(db, "guest_artist_id")
+    await db.guest_artists.insert_one({"id": new_id, "full_name": name_clean})
     print(f"🆕 Colaborador Creado: {name_clean} (ID: {new_id})")
     return new_id
 
@@ -42,9 +42,9 @@ async def process_excel_to_mongo(file_path: str):
     for _, row in df.iterrows():
         song_title = str(row['Canción']).strip()
         album_name = str(row['Album']).strip()
-        collab_str = str(row['Colaboradores']).strip()
+        guest_artist_str = str(row['Colaboradores']).strip()
 
-        collaborator_ids = []
+        guest_artist_ids = []
 
         song_escaped = re.escape(song_title)
         album_escaped = re.escape(album_name)
@@ -61,30 +61,30 @@ async def process_excel_to_mongo(file_path: str):
                     "title": {"$regex": f"^{song_escaped}$", "$options": "i"},
                     "album_id": album_doc["id"]
                 },
-                {"$set": {"collaborator_ids": collaborator_ids}}
+                {"$set": {"guest_artist_ids": guest_artist_ids}}
             )
 
         # 2. Verificar si hay colaboradores en el Excel
-        if collab_str.lower() not in ['nan', '', 'none']:
+        if guest_artist_str.lower() not in ['nan', '', 'none']:
             # Procesar colaboradores uno por uno
-            collaborator_names = [n for n in collab_str.split(',') if n.strip()]
-            for name in collaborator_names:
-                cid = await get_or_create_collaborator(db, name)
+            guest_artist_names = [n for n in guest_artist_str.split(',') if n.strip()]
+            for name in guest_artist_names:
+                cid = await get_or_create_guest_artist(db, name)
                 if cid:
-                    collaborator_ids.append(cid)
+                    guest_artist_ids.append(cid)
 
         # 3. Actualizar Track por Nombre e ID de Álbum
-        # Siempre se actualizará 'collaborator_ids', ya sea con IDs o como lista vacía []
+        # Siempre se actualizará 'guest_artist_ids', ya sea con IDs o como lista vacía []
         result = await db.tracks.update_one(
             {
                 "title": {"$regex": f"^{song_title}$", "$options": "i"},
                 "album_id": album_doc["id"]
             },
-            {"$set": {"collaborator_ids": collaborator_ids}}
+            {"$set": {"guest_artist_ids": guest_artist_ids}}
         )
 
         if result.modified_count > 0:
-            status = f"con {len(collaborator_ids)} IDs" if collaborator_ids else "como lista vacía"
+            status = f"con {len(guest_artist_ids)} IDs" if guest_artist_ids else "como lista vacía"
             print(f"✅ Track '{song_title}' actualizado {status}.")
         else:
             print(f"ℹ️ Track '{song_title}' no requirió cambios o no fue encontrado.")

@@ -34,11 +34,11 @@ class MusicalGenreStatsDto(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
-class CollaboratorReportDto(BaseModel):
+class GuestArtistReportDto(BaseModel):
     period: str = Field(..., validation_alias="period", serialization_alias="period")
     totalTracks: int = Field(..., validation_alias="total_tracks", serialization_alias="totalTracks")
-    collabTracks: int = Field(..., validation_alias="collab_tracks", serialization_alias="collabTracks")
-    collabPercentage: float = Field(..., validation_alias="collab_percentage", serialization_alias="collabPercentage")
-    collaborators: List[str] = Field(..., validation_alias="collaborators", serialization_alias="collaborators")
+    guestArtistTracks: int = Field(..., validation_alias="guest_artist_tracks", serialization_alias="guestArtistTracks")
+    guestArtistPercentage: float = Field(..., validation_alias="guest_artist_percentage", serialization_alias="guestArtistPercentage")
+    guestArtists: List[str] = Field(..., validation_alias="guest_artists", serialization_alias="guestArtists")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)

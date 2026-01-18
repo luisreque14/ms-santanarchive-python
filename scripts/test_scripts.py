@@ -1,12 +1,12 @@
 import asyncio
 from scripts.common.db_utils import db_manager
 
-async def audit_collaborator_fields():
+async def audit_guest_artist_fields():
     db = await db_manager.connect()
 
-    # Buscamos documentos donde collaborator_ids existe pero NO es un array
+    # Buscamos documentos donde guest_artist_ids existe pero NO es un array
     cursor = db.tracks.find({
-        "collaborator_ids": {
+        "guest_artist_ids": {
             "$exists": True,
             "$not": {"$type": "array"}
         }
@@ -19,7 +19,7 @@ async def audit_collaborator_fields():
     else:
         print(f"❌ Se encontraron {len(bad_docs)} documentos con errores:")
         for doc in bad_docs:
-            actual_value = doc.get("collaborator_ids")
+            actual_value = doc.get("guest_artist_ids")
             print(
                 f"- Canción: {doc.get('title')} | ID: {doc.get('_id')} | Valor actual: {actual_value} (Tipo: {type(actual_value)})")
 
@@ -31,8 +31,8 @@ async def detect_type_mismatch():
     pipeline = [
         {
             "$project": {
-                "tipo": {"$type": "$collaborator_ids"},
-                "valor": "$collaborator_ids",
+                "tipo": {"$type": "$guest_artist_ids"},
+                "valor": "$guest_artist_ids",
                 "title": 1
             }
         },
@@ -62,18 +62,18 @@ async def run_diagnostic():
         {
             "$project": {
                 "title": 1,
-                "collab_type": {"$type": "$collaborator_ids"},
-                "collab_value": "$collaborator_ids"
+                "guest_artist_type": {"$type": "$guest_artist_ids"},
+                "guest_artist_value": "$guest_artist_ids"
             }
         },
         {
             "$group": {
-                "_id": "$collab_type",
+                "_id": "$guest_artist_type",
                 "count": {"$sum": 1},
                 "examples": {
                     "$push": {
                         "title": "$title",
-                        "value": "$collab_value"
+                        "value": "$guest_artist_value"
                     }
                 }
             }
@@ -82,7 +82,7 @@ async def run_diagnostic():
 
     results = await db.tracks.aggregate(pipeline).to_list(length=None)
 
-    print("\n--- REPORTE DE TIPOS EN 'collaborator_ids' ---")
+    print("\n--- REPORTE DE TIPOS EN 'guest_artist_ids' ---")
     for res in results:
         tipo = res['_id']
         print(f"\n📌 Tipo detectado: {tipo.upper()}")

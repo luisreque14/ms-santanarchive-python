@@ -39,8 +39,7 @@ class AlbumRepository:
                             "year": {"$ifNull": ["$album_info.release_year", 0]},
                             "genres": "$genres_info.name",
                             "composers": "$composers_info.name",
-                            # CAMBIO: Usamos 'collaborators' para que coincida con tu DTO
-                            "collaborators": {"$ifNull": ["$guests_info.full_name", []]},
+                            "guestArtists": {"$ifNull": ["$guests_info.full_name", []]},
                             # Pasamos metadata tal cual, asumiendo que en la BD ya tiene 
                             # las llaves: key, is_instrumental, is_live, is_love_song
                             "metadata": 1 

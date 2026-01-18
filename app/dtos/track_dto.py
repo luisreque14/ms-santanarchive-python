@@ -23,7 +23,7 @@ class TrackDto(BaseModel):
     genres: List[str] = Field(default_factory=list, validation_alias="genres", serialization_alias="genres")
     composers: List[str] = Field(default_factory=list, validation_alias="composers", serialization_alias="composers")
     metadata: TrackMetadataDto = Field(..., validation_alias="metadata", serialization_alias="metadata")
-    collaborators: List[str] = Field(default_factory=list, validation_alias="collaborators", serialization_alias="collaborators")
+    guestArtists: List[str] = Field(default_factory=list, validation_alias="guestArtists", serialization_alias="guestArtists")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 

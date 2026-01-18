@@ -33,8 +33,8 @@ class TrackRepository:
                             "year": {"$ifNull": ["$album_info.release_year", 0]},
                             "genres": "$genres_info.name",
                             "composers": "$composers_info.name",
-                            # CAMBIO: Usamos 'collaborators' para que coincida con tu DTO
-                            "collaborators": {"$ifNull": ["$guests_info.full_name", []]},
+                            # CAMBIO: Usamos 'guest_artists' para que coincida con tu DTO
+                            "guest_artists": {"$ifNull": ["$guests_info.full_name", []]},
                             # Pasamos metadata tal cual, asumiendo que en la BD ya tiene 
                             # las llaves: key, is_instrumental, is_live, is_love_song
                             "metadata": 1 
@@ -53,7 +53,7 @@ class TrackRepository:
             {
                 "$match": {
                     "album_info.release_year": {"$gte": start_year, "$lte": end_year},
-                    "collaborator_ids": {"$exists": True, "$not": {"$size": 0}}
+                    "guest_artist_ids": {"$exists": True, "$not": {"$size": 0}}
                 }
             },
             # ... Resto de los lookups de colaboradores, compositores y géneros ...

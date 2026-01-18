@@ -51,11 +51,11 @@ async def get_by_genre(
     return await service.list_tracks_by_genre(genre_id)
 
 @router.get(
-    "/collaborations/range", 
+    "/guest-artists/range", 
     response_model=List[TrackDto],
     response_model_by_alias=True
 )
-async def get_collab_range(
+async def get_guest_artist_range(
     start: int, 
     end: int, 
     service: TrackService = Depends(get_track_service)
@@ -63,4 +63,4 @@ async def get_collab_range(
     """
     Filtra colaboraciones por un rango de años (ej. 1970 a 1980).
     """
-    return await service.list_collaborations_by_range(start, end)
+    return await service.list_guest_artists_by_range(start, end)

@@ -7,7 +7,7 @@ from app.dtos.statistics.discography_dto import (
     InstrumentalStatsDto,
     LoveSongStatsDto,
     MusicalGenreStatsDto,
-    CollaboratorReportDto
+    GuestArtistReportDto
     )
 from app.core.dependencies import get_stats_service
 
@@ -76,11 +76,11 @@ async def get_musical_genre_stats(
     return await service.get_musical_genre_stats_logic()
 
 @router.get(
-    "/collaborators", 
-    response_model=List[CollaboratorReportDto],
+    "/guest-artists", 
+    response_model=List[GuestArtistReportDto],
     response_model_by_alias=True
 )
-async def get_collab_report(
+async def get_guest_artists_report(
     service: StatisticsService = Depends(get_stats_service)
 ):
-    return await service.get_collab_report_logic()
+    return await service.get_guest_artists_report_logic()

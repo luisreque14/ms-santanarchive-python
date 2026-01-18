@@ -6,7 +6,7 @@ from app.dtos.statistics.discography_dto import (
     InstrumentalStatsDto,
     LoveSongStatsDto,
     MusicalGenreStatsDto,
-    CollaboratorReportDto
+    GuestArtistReportDto
     )
 class StatisticsService:
     def __init__(self, repository: StatisticsRepository):
@@ -56,8 +56,7 @@ class StatisticsService:
         # Mapeo: genre_name -> genreName, track_count -> trackCount
         return [MusicalGenreStatsDto.model_validate(genre) for genre in results_db]
 
-    async def get_collab_report_logic(self) -> List[CollaboratorReportDto]:
-        results_db = await self.repo.get_collab_report()
+    async def get_guest_artists_report_logic(self) -> List[GuestArtistReportDto]:
+        results_db = await self.repo.get_guest_artists_report()
         
-        # Mapeo: collab_percentage -> collabPercentage, etc.
-        return [CollaboratorReportDto.model_validate(report) for report in results_db]
+        return [GuestArtistReportDto.model_validate(report) for report in results_db]

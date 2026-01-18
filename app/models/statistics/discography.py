@@ -32,9 +32,9 @@ class MusicalGenreStatsResponse(BaseModel):
     track_count: int
     percentage: float
 
-class CollaboratorReportResponse(BaseModel):
+class GuestArtistReportResponse(BaseModel):
     period: str
     total_tracks: int
-    collab_tracks: int
-    collab_percentage: float
-    collaborators: List[str]
+    guest_artist_tracks: int
+    guest_artist_percentage: float
+    guestArtists: List[str]

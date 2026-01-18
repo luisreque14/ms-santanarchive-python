@@ -166,48 +166,48 @@ class StatisticsRepository:
         ]
         return await self.db.tracks.aggregate(pipeline).to_list(None)
 
-    async def get_collab_report(self) -> List[dict]:
+    async def get_guest_artists_report(self) -> List[dict]:
         pipeline = [
             {"$lookup": {"from": "albums", "localField": "album_id", "foreignField": "id", "as": "album_info"}},
             {"$unwind": "$album_info"},
             {
                 "$addFields": {
                     "decade_start": {"$subtract": ["$album_info.release_year", {"$mod": ["$album_info.release_year", 10]}]},
-                    "has_collaborators": {"$cond": [{"$and": [{"$isArray": "$collaborator_ids"}, {"$gt": [{"$size": "$collaborator_ids"}, 0]}]}, 1, 0]}
+                    "has_guest_artists": {"$cond": [{"$and": [{"$isArray": "$guest_artist_ids"}, {"$gt": [{"$size": "$guest_artist_ids"}, 0]}]}, 1, 0]}
                 }
             },
             {
                 "$group": {
                     "_id": "$decade_start",
                     "total_tracks": {"$sum": 1},
-                    "collab_tracks": {"$sum": "$has_collaborators"},
-                    "all_collaborator_ids": {"$push": "$collaborator_ids"}
+                    "guest_artist_tracks": {"$sum": "$has_guest_artists"},
+                    "all_guest_artist_ids": {"$push": "$guest_artist_ids"}
                 }
             },
             {
                 "$project": {
                     "period": {"$concat": [{"$toString": "$_id"}, "-", {"$toString": {"$add": ["$_id", 9]}}]},
                     "total_tracks": 1,
-                    "collab_tracks": 1,
-                    "collab_percentage": {"$round": [{"$multiply": [{"$divide": ["$collab_tracks", "$total_tracks"]}, 100]}, 1]},
-                    "unique_collaborator_ids": {
+                    "guest_artist_tracks": 1,
+                    "guest_artist_percentage": {"$round": [{"$multiply": [{"$divide": ["$guest_artist_tracks", "$total_tracks"]}, 100]}, 1]},
+                    "unique_guest_artist_ids": {
                         "$reduce": {
-                            "input": "$all_collaborator_ids",
+                            "input": "$all_guest_artist_ids",
                             "initialValue": [],
                             "in": {"$setUnion": ["$$value", "$$this"]}
                         }
                     }
                 }
             },
-            {"$lookup": {"from": "collaborators", "localField": "unique_collaborator_ids", "foreignField": "id", "as": "col_data"}},
+            {"$lookup": {"from": "guest_artists", "localField": "unique_guest_artist_ids", "foreignField": "id", "as": "col_data"}},
             {
                 "$project": {
                     "_id": 0,
                     "period": 1,
                     "total_tracks": 1,
-                    "collab_tracks": 1,
-                    "collab_percentage": 1,
-                    "collaborators": "$col_data.full_name"
+                    "guest_artist_tracks": 1,
+                    "guest_artist_percentage": 1,
+                    "guest_artists": "$col_data.full_name"
                 }
             },
             {"$sort": {"period": 1}}

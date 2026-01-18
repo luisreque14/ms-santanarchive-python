@@ -23,7 +23,7 @@ class TrackResponse(BaseModel):
     genres: List[str] = Field(default_factory=list)
     composers: List[str] = Field(default_factory=list)
     metadata: TrackMetadata
-    collaborators: List[str] = Field(default_factory=list)
+    guestArtists: List[str] = Field(default_factory=list)
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -40,7 +40,7 @@ class TrackResponse(BaseModel):
                     "is_live": False,
                     "is_love_song": True
                 },
-                "collaborators": []
+                "guestArtists": []
             }
         }
     )
