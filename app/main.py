@@ -18,7 +18,7 @@ from app.routes.composers_routes import router as composer_router
 from app.routes.tracks_routes import router as track_router
 from app.routes.statistics_routes import router as statistics_router
 
-env_type = os.getenv("APP_ENV", "development")
+env_type = os.getenv("ENVIRONMENT", "development")
 env_file = ".env.production" if env_type == "production" else ".env"
 
 load_dotenv(env_file)
@@ -42,7 +42,7 @@ if not raw_origins:
     
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    current_env = os.getenv("APP_ENV", "development")
+    current_env = os.getenv("ENVIRONMENT", "development")
     
     print(os.getenv("API_KEY_INTERNAL", "development") + "\n")
         

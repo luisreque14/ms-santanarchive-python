@@ -3,7 +3,7 @@ from fastapi.security.api_key import APIKeyHeader
 import os
 from dotenv import load_dotenv
 
-env_type = os.getenv("APP_ENV", "development")
+env_type = os.getenv("ENVIRONMENT", "development")
 load_dotenv(".env.production" if env_type == "production" else ".env")
 
 API_KEY_NAME = "X-Santana-App-Token"
