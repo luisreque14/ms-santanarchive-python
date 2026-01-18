@@ -26,10 +26,12 @@ async def validate_layered_security(request: Request, api_key: str = Security(ap
         # Si el referer no empieza con ninguno de los dominios permitidos, bloqueamos
         if not referer or not any(referer.startswith(origin) for origin in allowed_origins):
             # Para debugging puedes imprimir el referer que llega:
-            # print(f"Referer recibido: {referer}") 
+            print(f"Referer recibido: {referer}") 
+            print(f"✅ Orígenes Permitidos: {allowed_origins}")
+            
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied from this origin"
+                detail=f"Access denied from this origin: '{referer}'"
             )
     
     return api_key

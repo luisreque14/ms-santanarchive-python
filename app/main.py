@@ -33,12 +33,6 @@ if not raw_origins:
     )
 
 origins = [o.strip() for o in raw_origins.split(",")]
-
-if not raw_origins:
-    # Error crítico: Detiene la ejecución si no hay configuración
-    raise RuntimeError(
-        f"❌ SEGURIDAD: La variable ALLOWED_ORIGINS no está definida en el entorno {env_type.upper()}."
-    )
     
 @asynccontextmanager
 async def lifespan(app: FastAPI):
