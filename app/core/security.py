@@ -1,10 +1,12 @@
 from fastapi import Request, HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
 import os
+from dotenv import load_dotenv
 
-# 1. Definimos el nombre del Header y el Secreto
+env_type = os.getenv("APP_ENV", "development")
+load_dotenv(".env.production" if env_type == "production" else ".env")
+
 API_KEY_NAME = "X-Santana-App-Token"
-# En producción, usa una cadena larga y aleatoria en tu .env
 API_KEY = os.getenv("API_KEY_INTERNAL")
 
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)

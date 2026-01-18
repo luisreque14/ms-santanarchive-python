@@ -19,9 +19,19 @@ from app.routes.tracks_routes import router as track_router
 from app.routes.statistics_routes import router as statistics_router
 
 env_type = os.getenv("APP_ENV", "development")
-load_dotenv(".env.production" if env_type == "production" else ".env")
+env_file = ".env.production" if env_type == "production" else ".env"
+
+load_dotenv(env_file)
 
 raw_origins = os.getenv("ALLOWED_ORIGINS")
+
+# Validación de seguridad
+if not raw_origins:
+    # Si la variable no existe en el .env, la API se detiene por seguridad.
+    raise RuntimeError(
+        f"❌ SEGURIDAD: La variable ALLOWED_ORIGINS debe estar definida en {env_type.upper()}."
+    )
+
 origins = [o.strip() for o in raw_origins.split(",")]
 
 if not raw_origins:
@@ -34,6 +44,8 @@ if not raw_origins:
 async def lifespan(app: FastAPI):
     current_env = os.getenv("APP_ENV", "development")
     
+    print(os.getenv("API_KEY_INTERNAL", "development") + "\n")
+        
     if current_env == "production":
         print("\n" + "="*40)
         print("⚠️  RUNNING IN PRODUCTION MODE")
