@@ -1,16 +1,10 @@
 from fastapi import APIRouter, Depends, Query
 from typing import List
-from app.database import get_db
-from app.repositories.geography_repository import GeographyRepository
 from app.services.geography_service import GeographyService
 from app.dtos.location_dto import CountryDto
+from app.core.dependencies import get_geo_service
 
 router = APIRouter()
-
-# Inyección de dependencias
-def get_geo_service(db=Depends(get_db)):
-    repo = GeographyRepository(db)
-    return GeographyService(repo)
 
 @router.get(
     "/countries/", 

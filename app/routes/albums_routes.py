@@ -1,20 +1,13 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
-from app.database import get_db
-from app.repositories.album_repository import AlbumRepository
 from app.services.album_service import AlbumService
 from app.dtos.album_dto import AlbumDto
-from app.dtos.track_dto import TrackDto  # Asumiendo que get_formatted_tracks usa este DTO
 from typing import List
+from app.core.dependencies import get_album_service
 
 router = APIRouter(prefix="/albums", tags=["Albums"])
 
-def get_album_service(db=Depends(get_db)):
-    repo = AlbumRepository(db)
-    return AlbumService(repo)
-
 @router.get(
     "/", 
-    # Usamos List[AlbumDto] para que Swagger muestre la lista correctamente
     response_model=List[AlbumDto], 
     response_model_by_alias=True
 )

@@ -1,14 +1,10 @@
 from fastapi import APIRouter, Depends, Query
-from app.database import get_db
-from app.repositories.track_repository import TrackRepository
 from app.services.track_service import TrackService
 from app.dtos.track_dto import TrackDto, GenreFilterDto
 from typing import List, Optional
+from app.core.dependencies import get_track_service
 
 router = APIRouter(prefix="/tracks", tags=["Tracks"])
-
-def get_track_service(db=Depends(get_db)):
-    return TrackService(TrackRepository(db))
 
 @router.get(
     "/", 

@@ -1,14 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
-from app.database import get_db
-from app.repositories.performance_repository import PerformanceRepository
+from fastapi import APIRouter, Depends
 from app.services.performance_service import PerformanceService
 from app.dtos.performance_credit_dto import PerformanceCreditDto # Ajustado al nombre del archivo anterior
 from typing import List
+from app.core.dependencies import get_performance_service
 
 router = APIRouter(prefix="/performance-credits", tags=["Performance Credits"])
-
-def get_performance_service(db=Depends(get_db)):
-    return PerformanceService(PerformanceRepository(db))
 
 @router.get(
     "/concert/{concert_id}", 

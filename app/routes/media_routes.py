@@ -1,14 +1,9 @@
 from fastapi import APIRouter, Depends
-from app.database import get_db
-from app.repositories.media_repository import MediaRepository
 from app.services.media_service import MediaService
 from app.models.media import AlbumPhotoSchema, ConcertVideoSchema
-from typing import List
+from app.core.dependencies import get_media_service
 
 router = APIRouter()
-
-def get_media_service(db=Depends(get_db)):
-    return MediaService(MediaRepository(db))
 
 @router.post("/album-photos/", status_code=201)
 async def add_album_photo(

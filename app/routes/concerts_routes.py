@@ -1,15 +1,11 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
-from app.database import get_db
-from app.repositories.concert_repository import ConcertRepository
 from app.services.concert_service import ConcertService
 from app.dtos.concert_dto import ConcertDto
 from app.dtos.performance_credit_dto import PerformanceCreditDto
 from typing import List, Optional
+from app.core.dependencies import get_concert_service
 
 router = APIRouter(prefix="/concerts", tags=["Concerts"])
-
-def get_concert_service(db=Depends(get_db)):
-    return ConcertService(ConcertRepository(db))
 
 @router.get(
     "/", 

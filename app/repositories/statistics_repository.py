@@ -1,14 +1,12 @@
 from app.database import get_db
 from typing import Optional, List
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 class StatisticsRepository:
-    """
-    Handles all complex MongoDB aggregation pipelines for discography statistics.
-    """
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self.db = db
 
-    @staticmethod
-    async def get_instrumental_stats(match_query: dict, album_id: Optional[int]) -> List[dict]:
-        db = get_db()
+    async def get_instrumental_stats(self, match_query: dict, album_id: Optional[int]) -> List[dict]:
         pipeline = [
             {"$match": match_query},
             {"$group": {
@@ -28,12 +26,9 @@ class StatisticsRepository:
                 "_id": 0
             }}
         ]
-        return await db.tracks.aggregate(pipeline).to_list(1)
+        return await self.db.tracks.aggregate(pipeline).to_list(1)
 
-    @staticmethod
-    async def get_key_stats(match_query: dict, album_id: Optional[int]) -> List[dict]:
-        db = get_db()
-        
+    async def get_key_stats(self, match_query: dict, album_id: Optional[int]) -> List[dict]:
         pipeline = [
                 {"$match": match_query},
                 {"$group": {"_id": {"aid": "$album_id", "k": "$metadata.key"}, "count": {"$sum": 1}}},
@@ -59,11 +54,9 @@ class StatisticsRepository:
                 {"$sort": {"count": -1}}
             ]
         
-        return await db.tracks.aggregate(pipeline).to_list(None)
+        return await self.db.tracks.aggregate(pipeline).to_list(None)
 
-    @staticmethod
-    async def get_executive_summary() -> List[dict]:
-        db = get_db()
+    async def get_executive_summary(self) -> List[dict]:
         pipeline = [
             {
                 "$facet": {
@@ -105,11 +98,9 @@ class StatisticsRepository:
                 }
             }
         ]
-        return await db.tracks.aggregate(pipeline).to_list(1)
+        return await self.db.tracks.aggregate(pipeline).to_list(1)
 
-    @staticmethod
-    async def get_love_song_stats() -> List[dict]:
-        db = get_db()
+    async def get_love_song_stats(self) -> List[dict]:
         pipeline = [
             {
                 "$group": {
@@ -135,11 +126,9 @@ class StatisticsRepository:
                 }
             }
         ]
-        return await db.tracks.aggregate(pipeline).to_list(1)
+        return await self.db.tracks.aggregate(pipeline).to_list(1)
 
-    @staticmethod
-    async def get_genre_stats() -> List[dict]:
-        db = get_db()
+    async def get_musical_genre_stats(self) -> List[dict]:
         pipeline = [
             {"$unwind": "$genre_ids"},
             {
@@ -175,11 +164,9 @@ class StatisticsRepository:
                 }
             }
         ]
-        return await db.tracks.aggregate(pipeline).to_list(None)
+        return await self.db.tracks.aggregate(pipeline).to_list(None)
 
-    @staticmethod
-    async def get_collab_report() -> List[dict]:
-        db = get_db()
+    async def get_collab_report(self) -> List[dict]:
         pipeline = [
             {"$lookup": {"from": "albums", "localField": "album_id", "foreignField": "id", "as": "album_info"}},
             {"$unwind": "$album_info"},
@@ -225,4 +212,4 @@ class StatisticsRepository:
             },
             {"$sort": {"period": 1}}
         ]
-        return await db.tracks.aggregate(pipeline).to_list(None)
+        return await self.db.tracks.aggregate(pipeline).to_list(None)

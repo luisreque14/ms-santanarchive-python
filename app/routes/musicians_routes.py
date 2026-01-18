@@ -1,14 +1,10 @@
 from fastapi import APIRouter, Depends
-from app.database import get_db
-from app.repositories.musician_repository import MusicianRepository
 from app.services.musician_service import MusicianService
 from app.dtos.musician_dto import RoleDto, MusicianDto
 from typing import List
+from app.core.dependencies import get_musician_service
 
 router = APIRouter(prefix="/musicians", tags=["Musicians"])
-
-def get_musician_service(db=Depends(get_db)):
-    return MusicianService(MusicianRepository(db))
 
 @router.get(
     "/roles/", 
