@@ -19,19 +19,27 @@ async def validate_layered_security(request: Request, api_key: str = Security(ap
     # 2. Validar Origen (Capa 2)
     if os.getenv("ENVIRONMENT") == "production":
         referer = request.headers.get("referer")
+        origin = request.headers.get("origin")
+        
+        source = referer or origin
+        
         # Obtenemos la lista de orígenes permitidos
         allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "")
         allowed_origins = [o.strip() for o in allowed_origins_raw.split(",")]
 
-        # Si el referer no empieza con ninguno de los dominios permitidos, bloqueamos
-        if not referer or not any(referer.startswith(origin) for origin in allowed_origins):
-            # Para debugging puedes imprimir el referer que llega:
-            print(f"Referer recibido: {referer}") 
-            print(f"✅ Orígenes Permitidos: {allowed_origins}")
+        # Si hay una fuente (petición desde navegador), la validamos estrictamente
+        if source:
+            allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "")
+            allowed_origins = [o.strip() for o in allowed_origins_raw.split(",")]
             
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied from this origin: '{referer}'"
-            )
-    
+            if not any(source.startswith(o) for o in allowed_origins):
+                # Para debugging puedes imprimir el referer que llega:
+                print(f"🛑 BLOQUEADO - Source: {source} | Referer: {referer} | Origin: {origin}")
+                print(f"✅ Orígenes Permitidos: {allowed_origins}")
+                
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Access denied from this origin: '{referer}'"
+                )
+        
     return api_key
