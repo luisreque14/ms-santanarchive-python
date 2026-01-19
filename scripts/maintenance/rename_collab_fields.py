@@ -1,3 +1,5 @@
+#python -m scripts.maintenance.rename_collab_fields
+
 import asyncio
 from scripts.common.db_utils import db_manager
 

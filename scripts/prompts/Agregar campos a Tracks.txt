@@ -1,0 +1,46 @@
+Crea un programa en python que lea un archivo Excel con estas columnas:
+
+Nro Pista
+Lado
+Canción
+Album
+Año Lanzamiento
+Compositores
+Duración
+Fecha lanzamiento
+Canción en vivo?
+Es canción de amor?
+Es instrumental?
+Tocada en vivo?
+Tono de la canción
+Género
+Artistas invitados
+Cantantes principales
+Cantantes invitados
+
+Por cada canción (combinación de "Canción" y "Album"), debe agregar los siguientes atributos a la colección "Track" de MongoDB (cloud):
+-release_date:
+	-Leer datos de columna "Fecha de lanzamiento". Debe estar en formato "yyyy-mm-dd".
+	-Tipo de dato: date
+	-Este campo es obligatorio. 
+	-Si el campo está vacío en Excel, imprimirás una alerta.
+-lead_vocal_ids:
+	-Leer datos de columna "Cantantes principales". 
+	-Tipo de dato: lista de números
+	-Los valores de esta columna son nombres de artistas separados por comas.
+	-Por cada nombre deberás validar si su nombre existe en la colección "musicians" uniendo los campos "first_name" + "[espacio en blanco]" + "last_name"
+	-Si existe en "musicians", debes obtener el "id" de "musician" y agregarlo en lead_vocals.
+	-Si no existe, debes crearlo en "musicians" y luego obtener el "id" de "musician" para agregarlo en lead_vocal_ids.
+-guest_lead_vocal_ids:
+	-Leer datos de columna "Cantantes invitados". 
+	-Tipo de dato: lista de números
+	-Los valores de esta columna son nombres de artistas separados por comas.
+	-Por cada nombre deberás validar si su nombre existe en la colección "guest_artists", campo "full_name"
+	-Si existe en "guest_artists", debes obtener el "id" de "guest_artist" y agregarlo en guests_lead_vocals.
+	-Si no existe, debes crearlo en "guest_artists" y luego obtener el "id" de "guest_artist" para agregarlo en guest_lead_vocal_ids.
+
+-Solo debes tomar en cuenta las columnas que he mencionado. Las demás no.
+-Antes de iniciar el pgroama, valida que, en el archivo Excel, existan las columnas con los nombres "Canción" y "Album". Si no existe, detener la ejecución.
+-Haz que este programa sea idempotente: que cuando lo vuelva a ejecutar, reemplace los datos existentes según la combinación de las columnas "Canción" y "Album".
+
+

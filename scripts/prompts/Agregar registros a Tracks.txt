@@ -1,0 +1,91 @@
+Crea un programa en python que lea un archivo Excel con estas columnas:
+
+Nro Pista
+Lado
+Canción
+Album
+Año Lanzamiento
+Compositores
+Duración
+Fecha lanzamiento
+Canción en vivo?
+Es canción de amor?
+Es instrumental?
+Tocada en vivo?
+Tono de la canción
+Género
+Artistas invitados
+Cantantes principales
+Cantantes invitados
+
+Por cada canción (combinación de "Canción" y "Album"), debe agregar nuevos registros a la colección "Track" de MongoDB (cloud).
+La colección Track tiene esta estructura:
+
+{
+  "album_id": 18,
+  "title": "The Nile",
+  "composer_ids": [
+    258
+  ],
+  "duration": "00:04:57",
+  "genre_ids": [
+    77
+  ],
+  "metadata": {
+    "key": "Am",
+    "is_instrumental": false,
+    "is_live": false,
+    "is_love_song": false
+  },
+  "side": "A",
+  "track_number": 1,
+  "guest_artist_ids": [],
+  "guest_lead_vocal_ids": [],
+  "lead_vocal_ids": []
+}
+
+Las indicaciones son las siguientes:
+
+-album_id: columna "Album" en la colección albums (campo title). Hacer trim e ignorar mayúsuclas y minúsculas.
+-title: columna Canción.
+-composer_ids: columna "Compositores", pero considerar lo siguiente:
+	-Los valores de esta columna son nombres de compositores separados por comas
+	-Por cada nombre, se debe buscar en la colección "composers", campo "full_name"
+	-Una vez obtenido el id de "composers", agregarlo a composer_ids.
+	-Si no existe o el valor de la columna está vacío, composer_ids debe ser un arreglo vacío.
+-duration: columna "Duración".
+-genre_ids: columna "Género", pero considerar lo siguiente:
+	-Los valores de esta columna son textos separados por comas
+	-Por cada texto, se debe buscar en la colección "genres", campo "name"
+	-Una vez obtenido el id de "genres", agregarlo a genre_ids.
+	-Si no existe o el valor de la columna está vacío, genre_ids debe ser un arreglo vacío.
+-metadata:
+	-key: columna "Tono de la canción"
+	-is_instrumental: columna "Es instrumental?". SI=true, NO=false. Si no existe valor, colocar false.
+	-is_live: columna "Canción en vivo?". SI=true, NO=false. Si no existe valor, colocar false.
+	-is_love_song: columna "Es canción de amor?". SI=true, NO=false. Si no existe valor, colocar false.
+-side: columna Lado
+-track_number: columna Nro Pista
+-guest_artist_ids: columna "Artistas invitados", pero considerar lo siguiente:
+	-Los valores de esta columna son textos separados por comas
+	-Por cada texto, se debe buscar en la colección "guest_artists", campo "full_name"
+	-Una vez obtenido el id de "guest_artists", agregarlo a guest_artist_ids.
+	-Si no existe o el valor de la columna está vacío, guest_artist_ids debe ser un arreglo vacío.
+-guest_lead_vocal_ids: columna "Cantantes invitados", pero considerar lo siguiente:
+	-Los valores de esta columna son textos separados por comas
+	-Por cada texto, se debe buscar en la colección "guest_artists", campo "full_name"
+	-Una vez obtenido el id de "guest_artists", agregarlo a guest_lead_vocal_ids.
+	-Si no existe o el valor de la columna está vacío, guest_lead_vocal_ids debe ser un arreglo vacío.
+-lead_vocal_ids: columna "Cantantes principales", pero considerar lo siguiente:
+	-Los valores de esta columna son textos separados por comas
+	-Por cada texto, se debe buscar en la colección "musicians", campo "full_name"
+	-Una vez obtenido el id de "musicians", agregarlo a guest_lead_vocal_ids.
+	-Si no existe o el valor de la columna está vacío, guest_lead_vocal_ids debe ser un arreglo vacío.
+
+
+-Solo debes tomar en cuenta las columnas que he mencionado. Las demás no.
+-En todos los campos de cadena se debe hacer Trim.
+-Antes de iniciar el pgroama, valida que, en el archivo Excel, existan las columnas con los nombres "Canción" y "Album". Si no existe, detener la ejecución.
+-Haz que este programa sea idempotente: que cuando lo vuelva a ejecutar, reemplace los datos existentes según la combinación de las columnas "Canción" y "Album".
+
+
