@@ -18,8 +18,17 @@ Artistas invitados
 Cantantes principales
 Cantantes invitados
 
-Por cada canción (combinación de "Canción" y "Album"), debe agregar nuevos registros a la colección "Track" de MongoDB (cloud).
-La colección Track tiene esta estructura:
+Por cada canción (combinación de "Canción" y "Album"), debe agregar nuevos registros a la colección "albums" y "tracks" de MongoDB (cloud).
+
+La colección albums tiene esta estructura:
+{
+  "id": 1,
+  "title": "Santana",
+  "release_year": 1969,
+  "cover": "santana-santana.jpg"
+}
+
+La colección tracks tiene esta estructura:
 
 {
   "album_id": 18,
@@ -46,7 +55,14 @@ La colección Track tiene esta estructura:
 
 Las indicaciones son las siguientes:
 
--album_id: columna "Album" en la colección albums (campo title). Hacer trim e ignorar mayúsuclas y minúsculas.
+-album_id: columna "Album" en la colección albums (campo title) pero considerar lo siguiente:
+	-Hacer trim e ignorar mayúsuclas y minúsculas.
+	-Buscar en la colección "albums" por el campo "title".
+	-Si no existe, crear un nuevo registro:
+		-release_year: columna "Año Lanzamiento"
+		-cover: texto "santana-[nombre del album].jpg", donde [nombre del album] debe estar en mínusculas y los espacios en blanco reemplazados por guiones.
+		-release_date: tipo date, columna "Fecha lanzamiento" (debe estar en formato "yyyy-mm-dd")
+	-Si existe, agregar el atributo "release_date" de tipo date (si no existe). Debe tener el valor de la columna "Fecha lanzamiento".
 -title: columna Canción.
 -composer_ids: columna "Compositores", pero considerar lo siguiente:
 	-Los valores de esta columna son nombres de compositores separados por comas
@@ -82,10 +98,10 @@ Las indicaciones son las siguientes:
 	-Una vez obtenido el id de "musicians", agregarlo a guest_lead_vocal_ids.
 	-Si no existe o el valor de la columna está vacío, guest_lead_vocal_ids debe ser un arreglo vacío.
 
-
+-Este programa solo debe crear álbumes y canciones si no existen. No debe actualizar los datos existentes.
 -Solo debes tomar en cuenta las columnas que he mencionado. Las demás no.
 -En todos los campos de cadena se debe hacer Trim.
 -Antes de iniciar el pgroama, valida que, en el archivo Excel, existan las columnas con los nombres "Canción" y "Album". Si no existe, detener la ejecución.
 -Haz que este programa sea idempotente: que cuando lo vuelva a ejecutar, reemplace los datos existentes según la combinación de las columnas "Canción" y "Album".
-
+-Antes de empezar, pregunta si está seguro de ejecutar este programa.
 
