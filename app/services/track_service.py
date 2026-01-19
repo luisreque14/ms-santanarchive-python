@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from typing import List, Optional
 from app.repositories.track_repository import TrackRepository
-from app.dtos.track_dto import TrackDto, GenreFilterDto
+from app.dtos.track_dto import TrackDto, GenreFilterDto, TrackWithAlbumDetailsDto
 
 class TrackService:
     def __init__(self, repository: TrackRepository):
@@ -37,7 +37,7 @@ class TrackService:
         
         return GenreFilterDto.model_validate(response_data)
 
-    async def list_guest_artists_by_range(self, start: int, end: int) -> List[TrackDto]:
+    async def list_by_guest_artists_range(self, start: int, end: int) -> List[TrackWithAlbumDetailsDto]:
         """
         Valida el rango de años y devuelve las pistas con colaboraciones mapeadas a DTO.
         """
@@ -49,4 +49,4 @@ class TrackService:
             
         guest_artists_db = await self.repo.get_tracks_by_date_range_pipeline(start, end)
         
-        return [TrackDto.model_validate(t) for t in guest_artists_db]
+        return [TrackWithAlbumDetailsDto.model_validate(t) for t in guest_artists_db]

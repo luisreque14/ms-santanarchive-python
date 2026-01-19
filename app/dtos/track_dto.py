@@ -18,15 +18,18 @@ class TrackMetadataDto(BaseModel):
 
 class TrackDto(BaseModel):
     title: str = Field(..., validation_alias="title", serialization_alias="title")
-    albumTitle: str = Field(..., validation_alias="album", serialization_alias="albumTitle")
-    releaseYear: int = Field(..., validation_alias="year", serialization_alias="releaseYear")
     genres: List[str] = Field(default_factory=list, validation_alias="genres", serialization_alias="genres")
     composers: List[str] = Field(default_factory=list, validation_alias="composers", serialization_alias="composers")
     metadata: TrackMetadataDto = Field(..., validation_alias="metadata", serialization_alias="metadata")
     guestArtists: List[str] = Field(default_factory=list, validation_alias="guestArtists", serialization_alias="guestArtists")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
-
+class TrackWithAlbumDetailsDto(TrackDto):
+    albumId: int = Field(..., validation_alias="albumId", serialization_alias="albumId")
+    albumTitle: str = Field(..., validation_alias="albumTitle", serialization_alias="albumTitle")
+    albumReleaseYear: int = Field(..., validation_alias="albumReleaseYear", serialization_alias="albumReleaseYear")
+    albumCover: Optional[str] = Field(None, validation_alias="cover", serialization_alias="albumCover")
+    
 class GenreFilterDto(BaseModel):
     genreName: str = Field(..., validation_alias="genre_name", serialization_alias="genreName")
     tracks: List[TrackDto] = Field(..., validation_alias="tracks", serialization_alias="tracks")

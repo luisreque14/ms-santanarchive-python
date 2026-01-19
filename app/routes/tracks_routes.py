@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from app.services.track_service import TrackService
-from app.dtos.track_dto import TrackDto, GenreFilterDto
+from app.dtos.track_dto import TrackDto, GenreFilterDto, TrackWithAlbumDetailsDto
 from typing import List, Optional
 from app.core.dependencies import get_track_service
 
@@ -51,11 +51,11 @@ async def get_by_genre(
     return await service.list_tracks_by_genre(genre_id)
 
 @router.get(
-    "/guest-artists/range", 
-    response_model=List[TrackDto],
+    "/by-guest-artists-range", 
+    response_model=List[TrackWithAlbumDetailsDto],
     response_model_by_alias=True
 )
-async def get_guest_artist_range(
+async def get_by_guest_artist_range(
     start: int, 
     end: int, 
     service: TrackService = Depends(get_track_service)
@@ -63,4 +63,4 @@ async def get_guest_artist_range(
     """
     Filtra colaboraciones por un rango de años (ej. 1970 a 1980).
     """
-    return await service.list_guest_artists_by_range(start, end)
+    return await service.list_by_guest_artists_range(start, end)
