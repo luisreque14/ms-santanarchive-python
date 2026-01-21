@@ -1,4 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import List, Optional
 
 class TrackRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
@@ -25,7 +26,10 @@ class TrackRepository:
                     {
                         "$project": {
                             "_id": 0,
+                            "track_number": 1,
                             "title": 1,
+                            "duration": 1,
+                            "duration_seconds": 1,
                             "album": {"$ifNull": ["$album_info.title", "Unknown Album"]},
                             "year": {"$ifNull": ["$album_info.release_year", 0]},
                             "genres": "$genres_info.name",
@@ -71,11 +75,15 @@ class TrackRepository:
                     {
                         "$project": {
                             "_id": 0,
+                            "id": 1,
+                            "track_number": 1,
                             "title": 1,
-                            "albumId": "$album_info.id",
-                            "albumTitle": "$album_info.title", # validation_alias="album"
-                            "albumReleaseYear": "$album_info.release_year", # validation_alias="year"
-                            "albumCover": "$album_info.cover",
+                            "duration": 1,
+                            "duration_seconds": 1,
+                            "album_id": "$album_info.id",
+                            "album_title": "$album_info.title", # validation_alias="album"
+                            "album_release_year": "$album_info.release_year", # validation_alias="year"
+                            "album_cover": "$album_info.cover",
                             "metadata": 1,
                             # Extraemos solo el campo 'name' de cada objeto en el array resultante
                             "genres": "$genres_info.name", 
@@ -84,6 +92,59 @@ class TrackRepository:
                             "guestArtists": "$guests_info.full_name" # O el campo donde guardes el nombre del invitado
                         }
                     },
-                    {"$sort": {"albumReleaseYear": 1}}
+                    {"$sort": {"album_release_year": 1}}
                 ]
         return await self.db.tracks.aggregate(pipeline).to_list(length=None)
+
+    async def get_tracks_by_top_duration(
+            self, 
+            order: str = "desc", 
+            is_live: Optional[bool] = None
+        ) -> List[dict]:
+            # 1. Determinar dirección: 1 para ASC, -1 para DESC
+            direction = -1 if order.lower() == "desc" else 1
+
+            # 2. Construir el filtro dinámico
+            match_filter = {}
+            if is_live is not None:
+                match_filter["metadata.is_live"] = is_live
+
+            pipeline = [
+                # Filtramos antes de ordenar para optimizar la búsqueda
+                {"$match": match_filter},
+                
+                # Ordenamos por duración
+                {"$sort": {"duration_seconds": direction}},
+                
+                # Limitamos al Top 10
+                {"$limit": 10},
+                
+                # Join con la colección albums
+                {
+                    "$lookup": {
+                        "from": "albums",
+                        "localField": "album_id",
+                        "foreignField": "id",
+                        "as": "album_info"
+                    }
+                },
+                {"$unwind": "$album_info"},
+                
+                {
+                    "$project": {
+                        "_id": 0,
+                        "track_number": 1,
+                        "title": 1,
+                        "duration": 1,
+                        "duration_seconds": 1,
+                        "album_id": 1,
+                        "album_title": "$album_info.title",
+                        "album_release_year": "$album_info.release_year",
+                        "album_release_date": "$album_info.release_date",
+                        "album_cover": "$album_info.cover"
+                    }
+                }
+            ]
+
+            cursor = self.db.tracks.aggregate(pipeline)
+            return await cursor.to_list(length=10)

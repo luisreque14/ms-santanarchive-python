@@ -50,3 +50,9 @@ class TrackService:
         guest_artists_db = await self.repo.get_tracks_by_date_range_pipeline(start, end)
         
         return [TrackWithAlbumDetailsDto.model_validate(t) for t in guest_artists_db]
+    
+
+    async def get_tracks_by_top_duration(self, isLive: bool | None, order: str = "desc") -> List[TrackWithAlbumDetailsDto]:
+        tracks_db = await self.repo.get_tracks_by_top_duration(order, isLive)
+        
+        return [TrackWithAlbumDetailsDto.model_validate(t) for t in tracks_db]

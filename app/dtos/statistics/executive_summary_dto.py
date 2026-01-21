@@ -7,8 +7,8 @@ class ExecutiveSummaryDto(BaseModel):
     total_studio_instrumental: int = Field(0, validation_alias="total_studio_instrumental", exclude=True)
     love_songs_count: int = Field(0, validation_alias="love_songs_count", exclude=True)
     minor_keys_count: int = Field(0, validation_alias="minor_keys_count", exclude=True)
-    long_studio_track_data: Optional[dict] = Field(None, exclude=True)
-    short_studio_track_data: Optional[dict] = Field(None, exclude=True)
+    longest_studio_track_data: Optional[dict] = Field(None, exclude=True)
+    shortest_studio_track_data: Optional[dict] = Field(None, exclude=True)
 
     # --- Atributos de Salida (Lo que ve el usuario) ---
     totalTracks: int = Field(0, validation_alias="total_tracks", serialization_alias="totalTracks")
@@ -21,11 +21,11 @@ class ExecutiveSummaryDto(BaseModel):
     percentageKeysMinor: float = Field(0.0, validation_alias="percentage_keys_minor", serialization_alias="percentageKeysMinor")
     
     # Strings informativos
-    longStudioAlbum: str = Field("N/A", validation_alias="long_studio_album", serialization_alias="longStudioAlbum")
-    shortStudioAlbum: str = Field("N/A", validation_alias="short_studio_album", serialization_alias="shortStudioAlbum")
+    longestStudioAlbum: str = Field("N/A", validation_alias="longest_studio_album", serialization_alias="longestStudioAlbum")
+    shortestStudioAlbum: str = Field("N/A", validation_alias="shortest_studio_album", serialization_alias="shortestStudioAlbum")
     mostUsedKey: str = Field("N/A", validation_alias="most_used_key", serialization_alias="mostUsedKey")
-    longStudioTrack: str = Field("N/A", serialization_alias="longStudioTrack")
-    shortStudioTrack: str = Field("N/A", serialization_alias="shortStudioTrack")
+    longestStudioTrack: str = Field("N/A", serialization_alias="longestStudioTrack")
+    shortestStudioTrack: str = Field("N/A", serialization_alias="shortestStudioTrack")
     top1AlbumsSinger: str = Field("N/A", validation_alias="top1_albums_singer", serialization_alias="top1AlbumsSinger")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
@@ -48,9 +48,9 @@ class ExecutiveSummaryDto(BaseModel):
         self.percentageKeysMinor = round(self.percentageKeysMinor, 2)
         
         # 4. Formateo de nombres de canciones (Solo Live tracks)
-        if self.long_studio_track_data:
-            self.longStudioTrack = f"{self.long_studio_track_data.get('title')} - {self.long_studio_track_data.get('duration')}"
-        if self.short_studio_track_data:
-            self.shortStudioTrack = f"{self.short_studio_track_data.get('title')} - {self.short_studio_track_data.get('duration')}"
+        if self.longest_studio_track_data:
+            self.longestStudioTrack = f"{self.longest_studio_track_data.get('title')} - {self.longest_studio_track_data.get('duration')}"
+        if self.shortest_studio_track_data:
+            self.shortestStudioTrack = f"{self.shortest_studio_track_data.get('title')} - {self.shortest_studio_track_data.get('duration')}"
             
         return self

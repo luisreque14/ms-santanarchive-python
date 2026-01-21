@@ -128,8 +128,8 @@ class ExecutiveSummaryRepository:
         short_res = await short_cursor.to_list(1)
         
         return {
-            "long_studio_track_data": long_res[0] if long_res else None,
-            "short_studio_track_data": short_res[0] if short_res else None
+            "longest_studio_track_data": long_res[0] if long_res else None,
+            "shortest_studio_track_data": short_res[0] if short_res else None
         }
 
     async def _get_album_insights(self) -> dict:
@@ -178,8 +178,8 @@ class ExecutiveSummaryRepository:
             # 5. Proyectamos para devolver un diccionario plano
             {
                 "$project": {
-                    "long_studio_album": {"$arrayElemAt": ["$longest.title", 0]},
-                    "short_studio_album": {"$arrayElemAt": ["$shortest.title", 0]}
+                    "longest_studio_album": {"$arrayElemAt": ["$longest.title", 0]},
+                    "shortest_studio_album": {"$arrayElemAt": ["$shortest.title", 0]}
                 }
             }
         ]
@@ -191,11 +191,11 @@ class ExecutiveSummaryRepository:
         if result and result[0]:
             data = result[0]
             return {
-                "long_studio_album": data.get("long_studio_album", "N/A"),
-                "short_studio_album": data.get("short_studio_album", "N/A")
+                "longest_studio_album": data.get("longest_studio_album", "N/A"),
+                "shortest_studio_album": data.get("shortest_studio_album", "N/A")
             }
         
-        return {"long_studio_album": "N/A", "short_studio_album": "N/A"}
+        return {"longest_studio_album": "N/A", "shortest_studio_album": "N/A"}
 
     async def _get_top_lead_singer(self) -> dict:
         pipeline = [

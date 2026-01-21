@@ -4,9 +4,6 @@ class AlbumRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
-    #async def get_albums(self, query: dict):
-    #    return await self.db.albums.find(query, {"_id": 0}).sort("release_year", 1).to_list(length=100)
-
     async def get_album_by_id(self, album_id: int):
         return await self.db.albums.find_one({"id": album_id}, {"_id": 0})
 
