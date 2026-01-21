@@ -1,20 +1,15 @@
 from fastapi import HTTPException
-from typing import List, Optional
+from typing import List
 from app.repositories.album_repository import AlbumRepository
-from app.dtos.album_dto import AlbumDto, SongDto
+from app.dtos.album_dto import AlbumDto
 
 class AlbumService:
     def __init__(self, repository: AlbumRepository):
         self.repo = repository
 
     async def list_albums(self, era: str) -> List[AlbumDto]:
-        query = {}
-        if era != "all" and era.isdigit():
-            start_year = int(era)
-            query["release_year"] = {"$gte": start_year, "$lte": start_year + 9}
-
         # Obtenemos los modelos de la base de datos (snake_case)
-        albums_db = await self.repo.get_albums(query)
+        albums_db = await self.repo.get_albums(era)
         
         # Mapeamos la lista de resultados al DTO con camelCase
         # model_validate se encarga de convertir release_year -> releaseYear, etc.

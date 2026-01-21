@@ -4,8 +4,8 @@ class AlbumRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
-    async def get_albums(self, query: dict):
-        return await self.db.albums.find(query, {"_id": 0}).sort("release_year", 1).to_list(length=100)
+    #async def get_albums(self, query: dict):
+    #    return await self.db.albums.find(query, {"_id": 0}).sort("release_year", 1).to_list(length=100)
 
     async def get_album_by_id(self, album_id: int):
         return await self.db.albums.find_one({"id": album_id}, {"_id": 0})
@@ -48,3 +48,47 @@ class AlbumRepository:
                 ]
         
         return await self.db.tracks.aggregate(pipeline).to_list(length=100)
+    
+    async def get_albums(self, era: str = "all") -> list:
+        # 1. Definir el filtro inicial (Era)
+        match_stage = {}
+        if era != "all" and era.isdigit():
+            start_year = int(era)
+            match_stage = {
+                "release_year": {
+                    "$gte": start_year, 
+                    "$lte": start_year + 9
+                }
+            }
+
+        pipeline = [
+            # Filtrar álbumes por la década seleccionada antes de unir con tracks
+            {"$match": match_stage} if match_stage else {"$match": {}},
+            
+            {
+                "$lookup": {
+                    "from": "tracks",
+                    "localField": "id",
+                    "foreignField": "album_id",
+                    "as": "album_tracks"
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "id": 1,
+                    "title": 1,
+                    "release_date": 1,
+                    "release_year": 1,
+                    "cover": 1,
+                    "is_live": 1,
+                    "duration": { 
+                        "$ifNull": [{"$sum": "$album_tracks.duration_seconds"}, 0] 
+                    }
+                }
+            },
+            {"$sort": {"id": 1}}
+        ]
+        
+        cursor = self.db.albums.aggregate(pipeline)
+        return await cursor.to_list(length=None)
