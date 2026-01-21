@@ -18,10 +18,12 @@ from app.repositories.performance_repository import PerformanceRepository
 from app.services.performance_service import PerformanceService
 from app.repositories.track_repository import TrackRepository
 from app.services.track_service import TrackService
+from app.repositories.executive_summary_repository import ExecutiveSummaryRepository
 
 def get_stats_service(db=Depends(get_db)):
     repo = StatisticsRepository(db)
-    return StatisticsService(repo)
+    executiveSummaryRepo = ExecutiveSummaryRepository(db)
+    return StatisticsService(repo, executiveSummaryRepo)
 
 def get_album_service(db=Depends(get_db)):
     repo = AlbumRepository(db)

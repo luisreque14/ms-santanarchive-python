@@ -1,0 +1,32 @@
+
+
+Tengo un archivo Excel con un listado de todos los conciertos que ha realizado Santana desde 1969 hasta 1983.
+Este listado tiene estas columnas:
+
+Fecha: fecha del concierto
+Ciudad: ciudad del concierto
+Estado: estado de la ciudad (aplica solo para United States y Canada)
+Pais: país de la ciudad
+Lugar: este dato falta completar, te indicaré cómo hacerlo luego
+Canción: este dato falta completar, te indicaré cómo hacerlo luego
+Reprogramado?: indica si el concierto fue reprogramado (SI) o no (NO)
+Fecha reprogramación
+Es TV Show?: indica si el concierto fue una presentación en TV (SI) o no (NO)
+Canción con invitado?: indica si la canción tiene uno o más cantantes/músicos invitados (featuring)
+Gira: este dato falta completar, te indicaré cómo hacerlo luego
+Es festival?: indica si el concierto fue parte de un festival (SI) o no (NO)
+
+Este es un ejemplo del archivo que tengo:
+
+Fecha	Ciudad	Estado	Pais	Lugar	Canción	Reprogramado?	Fecha reprogramación	Es TV Show?	Canción con invitado?	Es una canción?	Gira	Es festival?
+1969-02-13	San Francisco	CA	United States		N/A			NO	NO	NO		
+1969-02-14	San Francisco	CA	United States		N/A			NO	NO	NO		
+
+
+Crea un programa en Python que lea el archivo Excel y genere un nuevo archivo Excel con las columnas anteriores pero completando el Lugar, Canción y Gira de esta manera:
+
+Lugar: en base a la Fecha, consultar está página https://www.setlist.fm/search?year=1969&query=santana usando de Web Scrapping
+para obtener el texto que acompaña al texto "venue"
+Canción: si se encontró el lugar (siempre en la misma página de setlist), buscar un div con clase "setlistPreview" y dentro de este hay un enlace con la nomenclatura https://www.setlist.fm/setlist/santana/[año]/[lugar]. Consultar esta página para obtener el setlist del concierto y completar el excel con una fila por cada canción encontrada. No hay problema en que toda la fila se repitan los otros valores. Si no hay contenido de setlist, mostrar N/A.
+Gira: misma forma para obtener el lugar, pero el texto es "tour"
+

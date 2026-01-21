@@ -56,50 +56,6 @@ class StatisticsRepository:
         
         return await self.db.tracks.aggregate(pipeline).to_list(None)
 
-    async def get_executive_summary(self) -> List[dict]:
-        pipeline = [
-            {
-                "$facet": {
-                    "general_stats": [
-                        {
-                            "$group": {
-                                "_id": None,
-                                "total": { "$sum": 1 },
-                                "instrumentals": { "$sum": { "$cond": ["$metadata.is_instrumental", 1, 0] } },
-                                "love_songs": { "$sum": { "$cond": ["$metadata.is_love_song", 1, 0] } }
-                            }
-                        }
-                    ],
-                    "most_used_key": [
-                        { "$group": { "_id": "$metadata.key", "count": { "$sum": 1 } } },
-                        { "$sort": { "count": -1 } },
-                        { "$limit": 1 }
-                    ]
-                }
-            },
-            {
-                "$project": {
-                    "stats": { "$arrayElemAt": ["$general_stats", 0] },
-                    "key_info": { "$arrayElemAt": ["$most_used_key", 0] }
-                }
-            },
-            {
-                "$project": {
-                    "total_tracks": "$stats.total",
-                    "instrumental_percentage": {
-                        "$cond": [{"$gt": ["$stats.total", 0]}, 
-                                 {"$multiply": [{"$divide": ["$stats.instrumentals", "$stats.total"]}, 100]}, 0]
-                    },
-                    "love_songs_percentage": {
-                        "$cond": [{"$gt": ["$stats.total", 0]}, 
-                                 {"$multiply": [{"$divide": ["$stats.love_songs", "$stats.total"]}, 100]}, 0]
-                    },
-                    "most_used_key": { "$ifNull": ["$key_info._id", "N/A"] }
-                }
-            }
-        ]
-        return await self.db.tracks.aggregate(pipeline).to_list(1)
-
     async def get_love_song_stats(self) -> List[dict]:
         pipeline = [
             {

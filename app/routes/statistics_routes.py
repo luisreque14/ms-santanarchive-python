@@ -47,7 +47,7 @@ async def get_key_stats(
 async def get_executive_summary(
     service: StatisticsService = Depends(get_stats_service)
 ):
-    data = await service.get_executive_summary_logic()
+    data = await service.get_executive_summary()
     if not data:
         raise HTTPException(status_code=404, detail="Could not generate executive summary")
     return data
