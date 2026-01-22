@@ -18,7 +18,8 @@ class ExecutiveSummaryRepository:
             self._get_album_insights(),
             self._get_top_lead_singer(),
             self.db.albums.count_documents({}),
-            self._get_most_instrumental_album()
+            self._get_most_instrumental_album(),
+            self.get_count_albums_without_instrumentals()
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
@@ -28,7 +29,8 @@ class ExecutiveSummaryRepository:
             album_insights, 
             top_singer, 
             total_albums,
-            most_instrumental_album
+            most_instrumental_album,
+            count_albums_without_instrumentals
         ) = await asyncio.gather(*tasks)
 
         # Unimos todas las piezas en el resumen final
@@ -38,7 +40,8 @@ class ExecutiveSummaryRepository:
             **duration_stats,
             **album_insights,
             **top_singer,
-            "most_instrumental_album": most_instrumental_album
+            "most_instrumental_album": most_instrumental_album,
+            "count_albums_without_instrumentals": count_albums_without_instrumentals,
         }
 
     # --- Métodos Privados de Apoyo ---
@@ -266,3 +269,50 @@ class ExecutiveSummaryRepository:
         cursor = self.db.tracks.aggregate(pipeline)
         result = await cursor.to_list(length=1)
         return result[0]["title"] if result else "N/A"
+    
+    async def get_count_albums_without_instrumentals(self) -> int:
+        pipeline = [
+            # 1. Filtramos álbumes de estudio
+            {
+                "$match": {
+                    "is_live": False
+                }
+            },
+            # 2. Buscamos si tienen al menos una canción instrumental
+            {
+                "$lookup": {
+                    "from": "tracks",
+                    "let": {"album_id_val": "$id"},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        {"$eq": ["$album_id", "$$album_id_val"]},
+                                        {"$eq": ["$metadata.is_instrumental", True]}
+                                    ]
+                                }
+                            }
+                        },
+                        {"$limit": 1} # Optimización: detenerse al encontrar la primera
+                    ],
+                    "as": "has_instrumental"
+                }
+            },
+            # 3. Filtramos los que NO tuvieron coincidencias (array vacío)
+            {
+                "$match": {
+                    "has_instrumental": {"$size": 0}
+                }
+            },
+            # 4. Contamos el total de documentos resultantes
+            {
+                "$count": "total_count"
+            }
+        ]
+
+        cursor = self.db.albums.aggregate(pipeline)
+        result = await cursor.to_list(length=1)
+        
+        # Retornamos solo el número entero
+        return result[0]["total_count"] if result else 0

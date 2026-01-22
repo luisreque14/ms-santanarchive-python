@@ -14,6 +14,7 @@ class ExecutiveSummaryDto(BaseModel):
     totalTracks: int = Field(0, validation_alias="total_tracks", serialization_alias="totalTracks")
     totalSongsByMusician: int = Field(0, validation_alias="total_songs_by_musician", serialization_alias="totalSongsByMusician")
     totalAlbums: int = Field(0, validation_alias="total_albums", serialization_alias="totalAlbums")
+    totalAlbumsWithoutInstrumentals: int = Field(0, validation_alias="count_albums_without_instrumentals", serialization_alias="totalAlbumsWithoutInstrumentals")
     
     # Porcentajes con aliases para camelCase
     instrumentalPercentage: float = Field(0.0, serialization_alias="instrumentalPercentage")
