@@ -1,4 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import List
 
 class AlbumRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
@@ -87,5 +88,56 @@ class AlbumRepository:
             {"$sort": {"id": 1}}
         ]
         
+        cursor = self.db.albums.aggregate(pipeline)
+        return await cursor.to_list(length=None)
+    
+    async def get_albums_by_studio_instrumental(self) -> List[dict]:
+        pipeline = [
+            # 1. Filtrar solo álbumes de estudio
+            {
+                "$match": {
+                    "is_live": False
+                }
+            },
+            # 2. Join con tracks para obtener canciones NO instrumentales
+            {
+                "$lookup": {
+                    "from": "tracks",
+                    "let": {"album_id_val": "$id"},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        {"$eq": ["$album_id", "$$album_id_val"]},
+                                        {"$eq": ["$metadata.is_instrumental", True]}
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    "as": "album_tracks"
+                }
+            },
+            # 3. Proyectar los campos solicitados y calcular estadísticas
+            {
+                "$project": {
+                    "_id": 0,
+                    "id": 1,
+                    "title": 1,
+                    "release_date": 1,
+                    "release_year": 1,
+                    "cover": 1,
+                    "is_live": 1,
+                    "instrumental_tracks_count": {"$size": "$album_tracks"},
+                    "duration": { 
+                        "$ifNull": [{"$sum": "$album_tracks.duration_seconds"}, 0] 
+                    }
+                }
+            },
+            # 4. Ordenar por año de lanzamiento (opcional pero recomendado)
+            {"$sort": {"release_year": -1}}
+        ]
+
         cursor = self.db.albums.aggregate(pipeline)
         return await cursor.to_list(length=None)

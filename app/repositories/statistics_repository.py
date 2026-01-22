@@ -1,4 +1,3 @@
-from app.database import get_db
 from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
 

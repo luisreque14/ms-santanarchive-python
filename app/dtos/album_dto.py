@@ -29,9 +29,12 @@ class AlbumDto(BaseModel):
     #studio: Optional[str] = Field(None, validation_alias="studio", serialization_alias="studio")
     
     # IMPORTANTE: default_factory=list evita que falle si no hay canciones registradas
-    tracklist: List[SongDto] = Field(default_factory=list, validation_alias="tracklist", serialization_alias="tracklist")
+    #tracklist: List[SongDto] = Field(default_factory=list, validation_alias="tracklist", serialization_alias="tracklist")
 
     model_config = ConfigDict(
         populate_by_name=True,
         from_attributes=True
     )
+    
+class AlbumWithDetailsDto(AlbumDto):
+    instrumentalTracksCount: int = Field(0, validation_alias="instrumental_tracks_count", serialization_alias="instrumentalTracksCount")

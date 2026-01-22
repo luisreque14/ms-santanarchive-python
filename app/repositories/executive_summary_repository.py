@@ -17,7 +17,8 @@ class ExecutiveSummaryRepository:
             self._get_duration_extremes(),
             self._get_album_insights(),
             self._get_top_lead_singer(),
-            self.db.albums.count_documents({}) # Conteo simple directo
+            self.db.albums.count_documents({}),
+            self._get_most_instrumental_album()
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
@@ -26,7 +27,8 @@ class ExecutiveSummaryRepository:
             duration_stats, 
             album_insights, 
             top_singer, 
-            total_albums
+            total_albums,
+            most_instrumental_album
         ) = await asyncio.gather(*tasks)
 
         # Unimos todas las piezas en el resumen final
@@ -35,7 +37,8 @@ class ExecutiveSummaryRepository:
             **general_stats,
             **duration_stats,
             **album_insights,
-            **top_singer
+            **top_singer,
+            "most_instrumental_album": most_instrumental_album
         }
 
     # --- Métodos Privados de Apoyo ---
@@ -218,3 +221,48 @@ class ExecutiveSummaryRepository:
         cursor = self.db.tracks.aggregate(pipeline)
         result = await cursor.to_list(length=1)
         return result[0] if result else {"top1_albums_singer": "N/A"}
+    
+    async def _get_most_instrumental_album(self) -> str:
+        pipeline = [
+            # 1. Filtrar solo tracks instrumentales
+            {
+                "$match": {
+                    "metadata.is_instrumental": True
+                }
+            },
+            # 2. Agrupar por álbum para contar canciones
+            {"$group": {"_id": "$album_id", "count": {"$sum": 1}}},
+            # 3. Join con ALBUMS aplicando el filtro is_live: False dentro del lookup
+            {
+                "$lookup": {
+                    "from": "albums",
+                    "let": {"album_id_from_track": "$_id"},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        {"$eq": ["$id", "$$album_id_from_track"]},
+                                        {"$eq": ["$is_live", False]}
+                                    ]
+                                }
+                            }
+                        },
+                        {"$project": {"title": 1, "_id": 0}}
+                    ],
+                    "as": "album_info"
+                }
+            },
+            # 4. Eliminar los que no encontraron un álbum de estudio (album_info vacío)
+            {"$unwind": "$album_info"},
+            # 5. Ordenar por la cuenta de tracks instrumentales
+            {"$sort": {"count": -1}},
+            # 6. Tomar el top 1
+            {"$limit": 1},
+            # 7. Proyectar solo el título
+            {"$project": {"_id": 0, "title": "$album_info.title"}}
+        ]
+        
+        cursor = self.db.tracks.aggregate(pipeline)
+        result = await cursor.to_list(length=1)
+        return result[0]["title"] if result else "N/A"

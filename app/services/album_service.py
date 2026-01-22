@@ -1,18 +1,15 @@
 from fastapi import HTTPException
 from typing import List
 from app.repositories.album_repository import AlbumRepository
-from app.dtos.album_dto import AlbumDto
+from app.dtos.album_dto import AlbumDto, AlbumWithDetailsDto
 
 class AlbumService:
     def __init__(self, repository: AlbumRepository):
         self.repo = repository
 
     async def list_albums(self, era: str) -> List[AlbumDto]:
-        # Obtenemos los modelos de la base de datos (snake_case)
         albums_db = await self.repo.get_albums(era)
         
-        # Mapeamos la lista de resultados al DTO con camelCase
-        # model_validate se encarga de convertir release_year -> releaseYear, etc.
         return [AlbumDto.model_validate(album) for album in albums_db]
 
     async def get_album_details(self, album_id: int) -> AlbumDto:
@@ -32,3 +29,8 @@ class AlbumService:
         
         # Retornamos el DTO (camelCase)
         return AlbumDto.model_validate(created_album)
+
+    async def get_albums_by_studio_instrumental(self) -> AlbumWithDetailsDto:
+        albums_db = await self.repo.get_albums_by_studio_instrumental()
+        
+        return [AlbumWithDetailsDto.model_validate(t) for t in albums_db]

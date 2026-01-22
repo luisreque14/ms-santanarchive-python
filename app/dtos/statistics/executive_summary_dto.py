@@ -27,6 +27,7 @@ class ExecutiveSummaryDto(BaseModel):
     longestStudioTrack: str = Field("N/A", serialization_alias="longestStudioTrack")
     shortestStudioTrack: str = Field("N/A", serialization_alias="shortestStudioTrack")
     top1AlbumsSinger: str = Field("N/A", validation_alias="top1_albums_singer", serialization_alias="top1AlbumsSinger")
+    mostInstrumentalAlbum: str = Field("N/A", validation_alias="most_instrumental_album", serialization_alias="mostInstrumentalAlbum")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
