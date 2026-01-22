@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from app.services.musician_service import MusicianService
-from app.dtos.musician_dto import RoleDto, MusicianDto
+from app.dtos.musician_dto import RoleDto, MusicianDto, MusicianDetailsDto
 from typing import List
 from app.core.dependencies import get_musician_service
 
@@ -51,3 +51,11 @@ async def create_musician(
     service: MusicianService = Depends(get_musician_service)
 ):
     return await service.register_musician(musician)
+
+@router.get(
+    "/by-studio-lead-vocals", 
+    response_model=List[MusicianDetailsDto],
+    response_model_by_alias=True
+)
+async def get_studio_lead_vocals(service: MusicianService = Depends(get_musician_service)):
+    return await service.get_studio_lead_vocals()

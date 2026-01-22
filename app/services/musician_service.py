@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from typing import List
 from app.repositories.musician_repository import MusicianRepository
-from app.dtos.musician_dto import MusicianDto, RoleDto
+from app.dtos.musician_dto import MusicianDto, RoleDto, MusicianDetailsDto
 
 class MusicianService:
     def __init__(self, repository: MusicianRepository):
@@ -48,3 +48,7 @@ class MusicianService:
         """
         musicians_db = await self.repo.get_all_musicians()
         return [MusicianDto.model_validate(m) for m in musicians_db]
+
+    async def get_studio_lead_vocals(self) -> List[MusicianDetailsDto]:
+        musicians_db = await self.repo.get_studio_lead_vocals()
+        return [MusicianDetailsDto.model_validate(m) for m in musicians_db]

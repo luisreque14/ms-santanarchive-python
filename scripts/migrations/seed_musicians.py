@@ -1,111 +1,120 @@
+# python -m scripts.migrations.seed_musicians
 import asyncio
 import pandas as pd
 from datetime import datetime
-from pydantic import ValidationError
-from dotenv import load_dotenv
+from pathlib import Path
 from scripts.common.db_utils import db_manager
 
-# Importación de tu infraestructura
-from app.models.musician import MusicianSchema
-
-# Cargamos variables de entorno (asegúrate de tener python-dotenv instalado)
-load_dotenv()
-
-
 def clean_data(val):
-    if pd.isna(val) or val == "N/A" or val == "Presente":
+    """Limpia valores de Excel manejando NAs y strings específicos."""
+    if pd.isna(val) or str(val).strip() in ["", "nan", "N/A", "Presente", "None"]:
         return None
-    return val
+    return str(val).strip()
 
+def format_year_to_date(year_val):
+    """Convierte un año de Excel al 1 de enero de ese año (objeto datetime)."""
+    cleaned = clean_data(year_val)
+    if not cleaned:
+        return None
+    try:
+        # Maneja casos como '1969' o '1969.0'
+        year = int(float(cleaned))
+        return datetime(year, 1, 1)
+    except (ValueError, TypeError):
+        return None
 
 def get_role_ids(instrument_str, role_map):
-    if not instrument_str:
+    """Mapea strings de instrumentos a sus IDs numéricos correspondientes."""
+    if not instrument_str or pd.isna(instrument_str):
         return []
-    names = [i.strip() for i in instrument_str.split(",")]
+    names = [i.strip() for i in str(instrument_str).split(",")]
     return [role_map[name] for name in names if name in role_map]
 
+async def seed_musicians(filename: str):
+    # Configuración de rutas
+    current_dir = Path(__file__).parent 
+    file_path = current_dir.parent / filename 
+    
+    if not file_path.exists():
+        print(f"❌ No existe el archivo: {file_path}")
+        return
 
-async def load_excel_to_mongo(file_path):
     db = await db_manager.connect()
 
-    # 3. Mapeo de roles desde la DB
+    # 1. Mapeo de roles desde la DB
     role_map = {}
     async for role in db.roles.find():
         role_map[role["name"]] = role["id"]
 
-    # 4. Procesar Excel
+    # 2. Procesar Excel
     try:
-        df = pd.read_excel(file_path)
+        df = pd.read_excel(file_path, dtype=str)
     except Exception as e:
         print(f"❌ Error al leer Excel: {e}")
         return
 
     print(f"🚀 Procesando {len(df)} registros...")
-    stats = {"nuevos": 0, "existentes": 0, "errores": 0}
+    stats = {"nuevos": 0, "actualizados": 0, "errores": 0}
+
+    # 3. Obtener el último ID para autoincrementar
+    last_m = await db.musicians.find_one(sort=[("id", -1)])
+    current_id_tracker = (last_m["id"] + 1) if last_m else 1
 
     for index, row in df.iterrows():
         try:
             first_name = str(row['Nombre']).strip()
             last_name = str(row['Apellido']).strip()
+            country_name = clean_data(row.get('País Origen'))
 
-            # Validación de duplicados
+            # Validación de existencia
             existing = await db.musicians.find_one({
                 "first_name": first_name,
                 "last_name": last_name
             })
 
-            if existing:
-                stats["existentes"] += 1
-                continue
+            # Preparación de datos manual (reemplaza al Schema)
+            country_id = 1
+            if country_name:
+                country = await db.countries.find_one({"name": country_name})
+                if country:
+                    country_id = country["id"]
+                else:
+                    print(f"⚠️ País no encontrado: {country_name} para {first_name}")
 
-            # Preparación de datos
-            apelativo = clean_data(row['Apelativo'])
-            start_year = int(row['Integró'])
-            start_date = datetime(start_year, 1, 1).date()
-
-            end_val = clean_data(row['Salió'])
-            end_date = None
-            if end_val:
-                end_date = datetime(int(end_val), 12, 31).date()
-
-            role_ids = get_role_ids(row['Instrumentos'], role_map)
-
-            # 5. Validación con Pydantic
-            musician_data = {
-                "id": index + 1,
+            # Construcción del documento directamente como diccionario
+            mongo_doc = {
+                "id": existing["id"] if existing else current_id_tracker,
                 "first_name": first_name,
                 "last_name": last_name,
-                "apelativo": apelativo,
-                "country_id": 1,
-                "start_date": start_date,
-                "end_date": end_date,
-                "roles": role_ids,
-                "bio": f"Músico de Santana que toca {row['Instrumentos']}"
+                "apelativo": clean_data(row.get('Apelativo')),
+                "country_id": country_id,
+                "active_from": format_year_to_date(row.get('Integró')),
+                "active_to": format_year_to_date(row.get('Salió')),
+                "roles": get_role_ids(row.get('Instrumentos'), role_map),
+                "bio": f"Músico de Santana que toca {row.get('Instrumentos', 'varios instrumentos')}"
             }
 
-            musician_obj = MusicianSchema(**musician_data)
+            if existing:
+                # Actualización
+                #await db.musicians.update_one(
+                #    {"_id": existing["_id"]},
+                #    {"$set": mongo_doc}
+                #)
+                stats["actualizados"] += 1
+                #print(f"🔄 Actualizado: {first_name} {last_name}")
+            else:
+                # Inserción
+                await db.musicians.insert_one(mongo_doc)
+                stats["nuevos"] += 1
+                current_id_tracker += 1
+                print(f"✨ Registrado: {first_name} {last_name}")
 
-            # 6. Formateo para MongoDB
-            mongo_doc = musician_obj.model_dump(by_alias=True)
-            mongo_doc["start_date"] = datetime.combine(musician_obj.start_date, datetime.min.time())
-            if musician_obj.end_date:
-                mongo_doc["end_date"] = datetime.combine(musician_obj.end_date, datetime.min.time())
-
-            await db.musicians.insert_one(mongo_doc)
-            stats["nuevos"] += 1
-            print(f"  + Registrado: {first_name} {last_name}")
-
-        except ValidationError as e:
-            stats["errores"] += 1
-            print(f"  ❌ Error Pydantic: {e}")
         except Exception as e:
             stats["errores"] += 1
-            print(f"  ⚠️ Error en fila {index}: {e}")
+            print(f"⚠️ Error inesperado en fila {index} ({row.get('Nombre')}): {e}")
 
-    # Resumen y cierre
-    print(f"\n✅ Finalizado. Nuevos: {stats['nuevos']} | Existentes: {stats['existentes']}")
+    print(f"\n✅ Finalizado. Nuevos: {stats['nuevos']} | Actualizados: {stats['actualizados']} | Errores: {stats['errores']}")
     await db_manager.close()
 
-
 if __name__ == "__main__":
-    asyncio.run(load_excel_to_mongo("musicians.xlsx"))
+    asyncio.run(seed_musicians("data_sources/musicians.xlsx"))

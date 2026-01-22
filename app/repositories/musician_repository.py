@@ -32,3 +32,79 @@ class MusicianRepository:
 
     async def country_exists(self, country_id: int) -> bool:
         return await self.db.countries.find_one({"id": country_id}) is not None
+
+    async def get_studio_lead_vocals(self) -> List[dict]:
+        pipeline = [
+            # 1. Join con COUNTRIES para obtener el nombre del país
+            {
+                "$lookup": {
+                    "from": "countries",
+                    "localField": "country_id",
+                    "foreignField": "id",
+                    "as": "country_info"
+                }
+            },
+            {"$unwind": {"path": "$country_info", "preserveNullAndEmptyArrays": True}},
+
+            # 2. Join con TRACKS filtrando por Lead Vocal Y que NO sea en vivo
+            {
+                "$lookup": {
+                    "from": "tracks",
+                    "let": {"musician_id": "$id"},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        # Filtro: El músico está en la lista de lead_vocal_ids
+                                        { "$in": ["$$musician_id", "$lead_vocal_ids"] },
+                                        # Filtro: La canción NO es en vivo
+                                        { "$eq": ["$metadata.is_live", False] }
+                                    ]
+                                }
+                            }
+                        },
+                        {"$count": "count"}
+                    ],
+                    "as": "track_count_res"
+                }
+            },
+
+            # 3. Extraer el número del array de conteo
+            {
+                "$addFields": {
+                    "number_of_tracks": {
+                        "$ifNull": [{ "$arrayElemAt": ["$track_count_res.count", 0] }, 0]
+                    }
+                }
+            },
+
+            # --- NUEVA ETAPA: FILTRAR SOLO LOS QUE TIENEN TRACKS ---
+            {
+                "$match": {
+                    "number_of_tracks": { "$gt": 0 }
+                }
+            },
+
+            # 4. Proyectar campos finales
+            {
+                "$project": {
+                    "_id": 0,
+                    "id": 1,
+                    "first_name": 1,
+                    "last_name": 1,
+                    "country_id": 1,
+                    "country_name": { "$ifNull": ["$country_info.name", "Unknown"] },
+                    "number_of_tracks": 1,
+                    "active_from": 1,
+                    "active_to": 1,
+                    "roles": 1
+                }
+            },
+            
+            # 5. Ordenar por relevancia
+            {"$sort": {"number_of_tracks": -1, "last_name": 1}}
+        ]
+
+        cursor = self.db.musicians.aggregate(pipeline)
+        return await cursor.to_list(length=None)

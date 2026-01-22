@@ -16,8 +16,8 @@ class MusicianSchema(BaseModel):
     # Alias "apelativo" se mantiene para compatibilidad con datos externos
     nickname: Optional[str] = Field(None, alias="apelativo")
     country_id: int
-    start_date: date
-    end_date: Optional[date] = None
+    active_from: date
+    active_to: Optional[date] = None
     roles: List[int] = Field(default_factory=list)
     bio: Optional[str] = None
 
