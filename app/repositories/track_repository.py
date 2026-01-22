@@ -42,7 +42,7 @@ class TrackRepository:
         
         return await self.db.tracks.aggregate(pipeline).to_list(length=100)
 
-    async def get_tracks_by_date_range_pipeline(self, start_year: int, end_year: int):
+    async def get_by_guest_artists_range(self, start_year: int, end_year: int):
         pipeline = [
                     # 1. Filtro inicial: Asegurar que guest_artist_ids existe y tiene datos
                     {
@@ -81,14 +81,13 @@ class TrackRepository:
                             "duration": 1,
                             "duration_seconds": 1,
                             "album_id": "$album_info.id",
-                            "album_title": "$album_info.title", # validation_alias="album"
-                            "album_release_year": "$album_info.release_year", # validation_alias="year"
+                            "album_title": "$album_info.title",
+                            "album_release_year": "$album_info.release_year",
+                            "album_release_date": "$album_info.release_date",
                             "album_cover": "$album_info.cover",
                             "metadata": 1,
-                            # Extraemos solo el campo 'name' de cada objeto en el array resultante
                             "genres": "$genres_info.name", 
                             "composers": "$composers_info.full_name",
-                            # validation_alias="guestArtists"
                             "guestArtists": "$guests_info.full_name" # O el campo donde guardes el nombre del invitado
                         }
                     },
@@ -148,3 +147,53 @@ class TrackRepository:
 
             cursor = self.db.tracks.aggregate(pipeline)
             return await cursor.to_list(length=10)
+        
+    async def get_tracks_by_lead_vocal(self, musician_id: int) -> List[dict]:
+        pipeline = [
+            # 1. Filtrar tracks donde el músico es Lead Vocal
+            {
+                "$match": {
+                    "lead_vocal_ids": musician_id
+                }
+            },
+            
+            # 2. Join con ALBUMS para obtener detalles del álbum
+            {
+                "$lookup": {
+                    "from": "albums",
+                    "localField": "album_id",
+                    "foreignField": "id",
+                    "as": "album_info"
+                }
+            },
+            
+            # 3. Descomponer el array de album_info
+            {"$unwind": {"path": "$album_info"}},
+
+            # 4. Proyectar los campos solicitados
+            {
+                "$project": {
+                    "_id": 0,
+                    "track_number": 1,
+                    "title": 1,
+                    "duration": 1,
+                    "duration_seconds": 1,
+                    "album_id": 1,
+                    "album_title": "$album_info.title",
+                    "album_release_year": "$album_info.release_year",
+                    "album_release_date": "$album_info.release_date",
+                    "album_cover": "$album_info.cover"
+                }
+            },
+
+            # 5. Ordenar por año de lanzamiento y luego por número de track
+            {
+                "$sort": {
+                    "album_release_year": -1,
+                    "track_number": 1
+                }
+            }
+        ]
+
+        cursor = self.db.tracks.aggregate(pipeline)
+        return await cursor.to_list(length=None)

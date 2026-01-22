@@ -37,7 +37,7 @@ class TrackService:
         
         return GenreFilterDto.model_validate(response_data)
 
-    async def list_by_guest_artists_range(self, start: int, end: int) -> List[TrackWithAlbumDetailsDto]:
+    async def get_by_guest_artists_range(self, start: int, end: int) -> List[TrackWithAlbumDetailsDto]:
         """
         Valida el rango de años y devuelve las pistas con colaboraciones mapeadas a DTO.
         """
@@ -47,12 +47,16 @@ class TrackService:
                 detail="Start year cannot be greater than end year"
             )
             
-        guest_artists_db = await self.repo.get_tracks_by_date_range_pipeline(start, end)
+        guest_artists_db = await self.repo.get_by_guest_artists_range(start, end)
         
         return [TrackWithAlbumDetailsDto.model_validate(t) for t in guest_artists_db]
-    
 
     async def get_tracks_by_top_duration(self, isLive: bool | None, order: str = "desc") -> List[TrackWithAlbumDetailsDto]:
         tracks_db = await self.repo.get_tracks_by_top_duration(order, isLive)
+        
+        return [TrackWithAlbumDetailsDto.model_validate(t) for t in tracks_db]
+
+    async def get_tracks_by_lead_vocal(self, musicianId: int) -> List[TrackWithAlbumDetailsDto]:
+        tracks_db = await self.repo.get_tracks_by_lead_vocal(musicianId)
         
         return [TrackWithAlbumDetailsDto.model_validate(t) for t in tracks_db]

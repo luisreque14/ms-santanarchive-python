@@ -63,7 +63,7 @@ async def get_by_guest_artist_range(
     """
     Filtra colaboraciones por un rango de años (ej. 1970 a 1980).
     """
-    return await service.list_by_guest_artists_range(start, end)
+    return await service.get_by_guest_artists_range(start, end)
 
 @router.get(
     "/by-top-duration", 
@@ -76,3 +76,14 @@ async def get_tracks_by_top_duration(
     service: TrackService = Depends(get_track_service)
 ):
     return await service.get_tracks_by_top_duration(isLive, sort)
+
+@router.get(
+    "/by-lead-vocal", 
+    response_model=List[TrackWithAlbumDetailsDto],
+    response_model_by_alias=True
+)
+async def get_tracks_by_lead_vocal(
+    musicianId: int = Query(0), 
+    service: TrackService = Depends(get_track_service)
+):
+    return await service.get_tracks_by_lead_vocal(musicianId)
