@@ -7,13 +7,16 @@ class ExecutiveSummaryRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
-    async def get_executive_summary(self, target_musician_id: int = 1) -> dict:
+    async def get_executive_summary(self) -> dict:
+        _CARLOS_MUSICIAN_ID = 1
+        
         """
         Método Orquestador: Ejecuta todas las consultas en paralelo.
         """
+        
         # Disparamos todas las tareas al mismo tiempo
         tasks = [
-            self._get_general_track_stats(target_musician_id),
+            self._get_general_track_stats(_CARLOS_MUSICIAN_ID),
             self._get_duration_extremes(),
             self._get_album_insights(),
             self._get_top_lead_singer(),
