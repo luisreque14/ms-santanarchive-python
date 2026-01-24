@@ -22,7 +22,8 @@ class ExecutiveSummaryRepository:
             self._get_top_lead_singer(),
             self.db.albums.count_documents({}),
             self._get_most_instrumental_album(),
-            self.get_count_albums_without_instrumentals()
+            self.get_count_albums_without_instrumentals(),
+            self.get_total_guest_artists()
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
@@ -33,7 +34,8 @@ class ExecutiveSummaryRepository:
             top_singer, 
             total_albums,
             most_instrumental_album,
-            count_albums_without_instrumentals
+            count_albums_without_instrumentals,
+            total_guest_artists
         ) = await asyncio.gather(*tasks)
 
         # Unimos todas las piezas en el resumen final
@@ -45,6 +47,7 @@ class ExecutiveSummaryRepository:
             **top_singer,
             "most_instrumental_album": most_instrumental_album,
             "count_albums_without_instrumentals": count_albums_without_instrumentals,
+            "total_guest_artists": total_guest_artists,
         }
 
     # --- Métodos Privados de Apoyo ---
@@ -319,3 +322,32 @@ class ExecutiveSummaryRepository:
         
         # Retornamos solo el número entero
         return result[0]["total_count"] if result else 0
+    
+    async def get_total_guest_artists(self) -> int:
+        pipeline = [
+            # 1. Filtramos tracks de estudio que tengan artistas invitados
+            {
+                "$match": {
+                    "metadata.is_live": False,
+                    "guest_artist_ids": {"$exists": True, "$not": {"$size": 0}}
+                }
+            },
+            # 2. Descomponemos el array guest_artist_ids
+            # Cada ID de la lista se convierte en un documento independiente
+            {"$unwind": "$guest_artist_ids"},
+            # 3. Agrupamos por el ID del artista para eliminar duplicados
+            {
+                "$group": {
+                    "_id": "$guest_artist_ids"
+                }
+            },
+            # 4. Contamos cuántos grupos (artistas únicos) resultaron
+            {
+                "$count": "total_guests"
+            }
+        ]
+
+        cursor = self.db.tracks.aggregate(pipeline)
+        result = await cursor.to_list(length=1)
+        
+        return result[0]["total_guests"] if result else 0

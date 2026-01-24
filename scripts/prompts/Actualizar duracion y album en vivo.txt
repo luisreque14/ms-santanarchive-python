@@ -1,0 +1,87 @@
+
+Ahora deseo que crees un programa en Python para leer un archivo Excel y actualizar los valores de estas columnas en las colecciones tracks y albums.
+
+-Duración
+-Duración en Segundos
+-Es álbum en vivo?
+
+Para realizar la actualización, debes seguir estas instrucciones:
+
+1. Columna "Duración"
+	-Buscar el track de la colección "tracks" por la llave: "Canción" y "Album".
+	-Si el track existe, actualizar el campo "duration" con el valor de la columna.
+	-Si no existe, mostrarás un error en el log.
+
+2. Columna "Duración en Segundos"
+	-Buscar el track de la colección "tracks" por la llave: "Canción" y "Album".
+	-Si el track existe, debes transformar el campo de la columna "Duración" (está en formato HH:mm:ss) a timespan.
+	-Si no existe, mostrarás un error en el log.
+	-La finalidad de esto es tener la duración de una canción en un formato que sea más fácil y óptimo de leer y transformar.
+
+3. Columna "Es álbum en vivo?"
+	-Buscar el album de la colección "albums" por la llave: "Album".
+	-Si el album existe, debes agregar el campo "is_live" con el valor true (si la columna es "SI") o false (si la columna es "NO")
+	-Si no existe, mostrarás un error en el log.
+	-Como el álbum se repite por cada registro, solo basta que actualices con el primer registro que encuentres.
+
+Te paso la estructura de las colecciones:
+
+Colección albums:
+
+{
+  "_id": {
+    "$oid": "69640b8cda27acaab8e03a90"
+  },
+  "id": 1,
+  "title": "Santana",
+  "release_year": 1969,
+  "cover": "santana-santana.jpg",
+  "release_date": {
+    "$date": {
+      "$numberLong": "-13219200000"
+    }
+  }
+}
+
+
+Colección tracks:
+
+{
+  "_id": {
+    "$oid": "696da70aaa40ff4219969fdf"
+  },
+  "album_id": 38,
+  "title": "Free Form Funkafide Filth",
+  "composer_ids": [],
+  "duration": "24:54:00",
+  "genre_ids": [],
+  "metadata": {
+    "key": "E",
+    "is_instrumental": true,
+    "is_live": true,
+    "is_love_song": false
+  },
+  "side": "B",
+  "track_number": 6,
+  "guest_artist_ids": [
+    88
+  ],
+  "guest_lead_vocal_ids": [],
+  "lead_vocal_ids": []
+}
+
+
+{
+  "totalTracks": 439,
+  "totalSongsByMusician": 12,
+  "totalAlbums": 39,
+  "instrumentalPercentage": 35.66,
+  "loveSongsPercentage": 0,
+  "percentageKeysMinor": 77.68,
+  "longStudioAlbum": "Guitar Heaven",
+  "shortStudioAlbum": "Illuminations",
+  "mostUsedKey": "Am",
+  "longStudioTrack": "While My Guitar Gently Weeps - 06:02:00",
+  "shortStudioTrack": "The Chosen Hour - 00:00:36",
+  "top1AlbumsSinger": "Alexander Ligertwood"
+}
