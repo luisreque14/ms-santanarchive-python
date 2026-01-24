@@ -1,5 +1,3 @@
-from app.database import get_db
-from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import asyncio
 
@@ -23,7 +21,8 @@ class ExecutiveSummaryRepository:
             self.db.albums.count_documents({}),
             self._get_most_instrumental_album(),
             self.get_count_albums_without_instrumentals(),
-            self.get_total_guest_artists()
+            self.get_total_guest_artists(),
+            self.get_total_live_tracks_in_studio_albums()
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
@@ -35,7 +34,8 @@ class ExecutiveSummaryRepository:
             total_albums,
             most_instrumental_album,
             count_albums_without_instrumentals,
-            total_guest_artists
+            total_guest_artists,
+            total_live_tracks_in_studio_albums,
         ) = await asyncio.gather(*tasks)
 
         # Unimos todas las piezas en el resumen final
@@ -48,6 +48,7 @@ class ExecutiveSummaryRepository:
             "most_instrumental_album": most_instrumental_album,
             "count_albums_without_instrumentals": count_albums_without_instrumentals,
             "total_guest_artists": total_guest_artists,
+            "total_live_tracks_in_studio_albums":total_live_tracks_in_studio_albums
         }
 
     # --- Métodos Privados de Apoyo ---
@@ -351,3 +352,39 @@ class ExecutiveSummaryRepository:
         result = await cursor.to_list(length=1)
         
         return result[0]["total_guests"] if result else 0
+    
+    async def get_total_live_tracks_in_studio_albums(self) -> int:
+        pipeline = [
+            # 1. Filtramos tracks que tengan el atributo metadata.is_live en True
+            {
+                "$match": {
+                    "metadata.is_live": True
+                }
+            },
+            # 2. Unimos con la colección de albums para verificar el tipo de álbum
+            {
+                "$lookup": {
+                    "from": "albums",
+                    "localField": "album_id",
+                    "foreignField": "id",
+                    "as": "album_info"
+                }
+            },
+            # 3. Descomponemos el array para filtrar por sus atributos
+            {"$unwind": "$album_info"},
+            # 4. Filtramos solo aquellos cuyo álbum NO sea en vivo (is_live: false)
+            {
+                "$match": {
+                    "album_info.is_live": False
+                }
+            },
+            # 5. Contamos el total de tracks que cumplen ambas condiciones
+            {
+                "$count": "total_count"
+            }
+        ]
+
+        cursor = self.db.tracks.aggregate(pipeline)
+        result = await cursor.to_list(length=1)
+        
+        return result[0]["total_count"] if result else 0

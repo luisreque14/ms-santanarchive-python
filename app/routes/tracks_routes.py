@@ -26,7 +26,7 @@ async def get_tracks(
     response_model=List[TrackDto],
     response_model_by_alias=True
 )
-async def get_tracks_by_album(
+async def get_by_album(
     album_id: int, 
     service: TrackService = Depends(get_track_service)
 ):
@@ -48,14 +48,14 @@ async def get_by_genre(
     """
     Obtiene todas las canciones de un género específico.
     """
-    return await service.list_tracks_by_genre(genre_id)
+    return await service.get_by_genre(genre_id)
 
 @router.get(
     "/by-guest-artists-range", 
     response_model=List[TrackWithAlbumDetailsDto],
     response_model_by_alias=True
 )
-async def get_by_guest_artist_range(
+async def get_by_guest_artists_range(
     start: int, 
     end: int, 
     service: TrackService = Depends(get_track_service)
@@ -70,20 +70,30 @@ async def get_by_guest_artist_range(
     response_model=List[TrackWithAlbumDetailsDto],
     response_model_by_alias=True
 )
-async def get_tracks_by_top_duration(
+async def get_by_top_duration(
     sort: str = Query(""), 
     isLive: bool | None = Query(None), 
     service: TrackService = Depends(get_track_service)
 ):
-    return await service.get_tracks_by_top_duration(isLive, sort)
+    return await service.get_by_top_duration(isLive, sort)
 
 @router.get(
     "/by-lead-vocal", 
     response_model=List[TrackWithAlbumDetailsDto],
     response_model_by_alias=True
 )
-async def get_tracks_by_lead_vocal(
+async def get_by_lead_vocal(
     musicianId: int = Query(0), 
     service: TrackService = Depends(get_track_service)
 ):
-    return await service.get_tracks_by_lead_vocal(musicianId)
+    return await service.get_by_lead_vocal(musicianId)
+
+@router.get(
+    "/by-live-in-studio-albums", 
+    response_model=List[TrackWithAlbumDetailsDto],
+    response_model_by_alias=True
+)
+async def get_by_live_in_studio_albums(
+    service: TrackService = Depends(get_track_service)
+):
+    return await service.get_by_live_in_studio_albums()

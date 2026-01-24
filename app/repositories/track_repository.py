@@ -8,7 +8,7 @@ class TrackRepository:
     async def get_genre_by_id(self, genre_id: int):
         return await self.db.genres.find_one({"id": genre_id})
 
-    async def get_tracks_with_details(self, match_stage: dict):
+    async def get_by_album(self, match_stage: dict):
         pipeline = [
                     {"$match": match_stage},
                     {
@@ -95,7 +95,7 @@ class TrackRepository:
                 ]
         return await self.db.tracks.aggregate(pipeline).to_list(length=None)
 
-    async def get_tracks_by_top_duration(
+    async def get_by_top_duration(
             self, 
             order: str = "desc", 
             is_live: Optional[bool] = None
@@ -128,7 +128,6 @@ class TrackRepository:
                     }
                 },
                 {"$unwind": "$album_info"},
-                
                 {
                     "$project": {
                         "_id": 0,
@@ -148,7 +147,7 @@ class TrackRepository:
             cursor = self.db.tracks.aggregate(pipeline)
             return await cursor.to_list(length=10)
         
-    async def get_tracks_by_lead_vocal(self, musician_id: int) -> List[dict]:
+    async def get_by_lead_vocal(self, musician_id: int) -> List[dict]:
         pipeline = [
             # 1. Filtrar tracks donde el músico es Lead Vocal
             {
@@ -187,6 +186,64 @@ class TrackRepository:
             },
 
             # 5. Ordenar por año de lanzamiento y luego por número de track
+            {
+                "$sort": {
+                    "album_release_year": -1,
+                    "track_number": 1
+                }
+            }
+        ]
+
+        cursor = self.db.tracks.aggregate(pipeline)
+        return await cursor.to_list(length=None)
+    
+    async def get_by_live_in_studio_albums(self) -> List[dict]:
+        pipeline = [
+            # 1. Filtramos tracks grabados en vivo (is_live: true)
+            {
+                "$match": {
+                    "metadata.is_live": True
+                }
+            },
+            # 2. Join con la colección de albums
+            {
+                "$lookup": {
+                    "from": "albums",
+                    "localField": "album_id",
+                    "foreignField": "id",
+                    "as": "album_info"
+                }
+            },
+            # 3. Validamos que el join haya encontrado un álbum
+            {
+                "$match": {
+                    "album_info": { "$ne": [] }
+                }
+            },
+            # 4. Aplanamos para acceder a las propiedades del álbum
+            {"$unwind": "$album_info"},
+            # 5. Filtramos solo los que pertenecen a álbumes de estudio
+            {
+                "$match": {
+                    "album_info.is_live": False
+                }
+            },
+            # 6. Proyección final con el mapeo solicitado
+            {
+                "$project": {
+                    "_id": 0,
+                    "track_number": 1,
+                    "title": 1,
+                    "duration": 1,
+                    "duration_seconds": 1,
+                    "album_id": 1,
+                    "album_title": "$album_info.title",
+                    "album_release_year": "$album_info.release_year",
+                    "album_release_date": "$album_info.release_date",
+                    "album_cover": "$album_info.cover"
+                }
+            },
+            # 7. Orden opcional por año y número de track
             {
                 "$sort": {
                     "album_release_year": -1,
