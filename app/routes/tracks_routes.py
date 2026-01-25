@@ -34,7 +34,7 @@ async def get_by_album(
     Obtiene la lista de canciones, opcionalmente filtradas por álbum.
     Incluye metadatos (tonalidad, instrumental, etc.) en camelCase.
     """
-    return await service.list_tracks(album_id)
+    return await service.get_by_album(album_id)
 
 @router.get(
     "/genre/{genre_id}", 
