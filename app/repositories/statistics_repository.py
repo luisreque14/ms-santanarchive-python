@@ -168,3 +168,46 @@ class StatisticsRepository:
             {"$sort": {"period": 1}}
         ]
         return await self.db.tracks.aggregate(pipeline).to_list(None)
+    
+    async def get_instrumental_tracks_by_year(self) -> List[dict]:
+        pipeline = [
+            # 1. Filtramos solo tracks instrumentales
+            {
+                "$match": {
+                    "metadata.is_instrumental": True
+                }
+            },
+            # 2. Join con la colección de albums
+            {
+                "$lookup": {
+                    "from": "albums",
+                    "localField": "album_id",
+                    "foreignField": "id",
+                    "as": "album_info"
+                }
+            },
+            # 3. Aplanamos para acceder al año del álbum
+            {"$unwind": "$album_info"},
+            # 4. Agrupamos por el año de lanzamiento del álbum
+            {
+                "$group": {
+                    "_id": "$album_info.release_year",
+                    "total_tracks": { "$sum": 1 }
+                }
+            },
+            # 5. Renombramos y limpiamos la salida
+            {
+                "$project": {
+                    "_id": 0,
+                    "year": "$_id",
+                    "total_tracks": 1
+                }
+            },
+            # 6. Ordenamos por año de forma descendente
+            {
+                "$sort": { "year": -1 }
+            }
+        ]
+
+        cursor = self.db.tracks.aggregate(pipeline)
+        return await cursor.to_list(length=None)

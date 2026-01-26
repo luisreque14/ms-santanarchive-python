@@ -1,5 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import asyncio
+from typing import List
 
 class ExecutiveSummaryRepository:
     def __init__(self, db: AsyncIOMotorDatabase):

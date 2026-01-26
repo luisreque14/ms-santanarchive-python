@@ -95,3 +95,4 @@ app.include_router(statistics_router, prefix=API_V1, dependencies=[Depends(valid
 #Conciertos en fechas de cumpleaños
 #Duración de álbumes, canción más corta, canción más extensa
 #Músicos que tuvieron otros roles en canciones: por ejemplo, Carlos tocaba congas en algunas canciones
+#Canción más tocada como intro en vivo (CONCIERTOS)

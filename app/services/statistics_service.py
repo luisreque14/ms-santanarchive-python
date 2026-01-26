@@ -7,7 +7,8 @@ from app.dtos.statistics.discography_dto import (
     InstrumentalStatsDto,
     LoveSongStatsDto,
     MusicalGenreStatsDto,
-    GuestArtistReportDto
+    GuestArtistReportDto,
+    InstrumentalTrackByYearDto
     )
 class StatisticsService:
     def __init__(self, repository: StatisticsRepository, executiveSummaryRepository: ExecutiveSummaryRepository):
@@ -67,3 +68,13 @@ class StatisticsService:
         results = await self.executiveSummaryRepository.get_executive_summary()
             
         return ExecutiveSummaryDto.model_validate(results)
+        
+    async def get_instrumental_tracks_by_year(self) -> List[InstrumentalTrackByYearDto]:
+        raw_data = await self.repo.get_instrumental_tracks_by_year()
+        
+        return [
+            InstrumentalTrackByYearDto(
+                year=item["year"], 
+                totalTracks=item["total_tracks"]
+            ) for item in raw_data
+        ]

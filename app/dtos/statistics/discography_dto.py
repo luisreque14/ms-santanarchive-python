@@ -42,3 +42,7 @@ class GuestArtistReportDto(BaseModel):
     guestArtists: List[str] = Field(..., validation_alias="guest_artists", serialization_alias="guestArtists")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+    
+class InstrumentalTrackByYearDto(BaseModel):
+    year: int
+    totalTracks: int
