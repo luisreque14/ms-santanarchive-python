@@ -65,3 +65,10 @@ class TrackService:
         tracks_db = await self.repo.get_by_live_in_studio_albums()
         
         return [TrackWithAlbumDetailsDto.model_validate(t) for t in tracks_db]
+
+    async def get_by_composer_id(self, composerId: int) -> List[TrackWithAlbumDetailsDto]:
+        tracks_db = await self.repo.get_by_composer_id(composerId)
+        
+        return [TrackWithAlbumDetailsDto.model_validate(t) for t in tracks_db]
+    
+    

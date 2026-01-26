@@ -26,6 +26,7 @@ class TrackDto(BaseModel):
     composers: List[str] = Field(default_factory=list, validation_alias="composers", serialization_alias="composers")
     metadata: Optional[TrackMetadataDto] = Field(None, validation_alias="metadata", serialization_alias="metadata")
     guestArtists: List[str] = Field(default_factory=list, validation_alias="guestArtists", serialization_alias="guestArtists")
+    composers: List[str] = Field(default_factory=list, validation_alias="composers", serialization_alias="composers")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 class TrackWithAlbumDetailsDto(TrackDto):

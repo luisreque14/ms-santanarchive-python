@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from scripts.common.db_utils import db_manager
 
-# Diccionario global para evitar consultas repetitivas a la nube
+# Caché global
 cache = {
     "genres": {},
     "composers": {},
@@ -32,20 +32,32 @@ def format_cover_name(album_name):
     return f"santana-{name_processed}.jpg"
 
 async def preload_caches(db):
-    """Carga los datos maestros en memoria al iniciar."""
-    print("⏳ Cargando datos maestros en caché...")
-    for coll in ["genres", "composers", "guest_artists", "musicians", "albums"]:
-        projection = {"id": 1, "name": 1, "full_name": 1, "title": 1}
-        cursor = db[coll].find({}, projection)
+    """Carga TODO de una sola vez para evitar find_one durante el bucle."""
+    print("⏳ Sincronizando maestros en memoria (Zero-DB-Query Mode)...")
+    
+    # Maestros estándar
+    for coll in ["genres", "composers", "guest_artists", "albums"]:
+        field = "title" if coll == "albums" else ("name" if coll == "genres" else "full_name")
+        cursor = db[coll].find({}, {"id": 1, field: 1})
         async for doc in cursor:
-            name = doc.get("name") or doc.get("full_name") or doc.get("title")
-            if name:
-                cache[coll][name.lower().strip()] = doc["id"]
-    print(f"🚀 Caché lista ({sum(len(v) for v in cache.values())} registros)")
+            if doc.get(field):
+                cache[coll][doc[field].lower().strip()] = int(doc["id"])
+    
+    # Músicos (Especial: sin full_name)
+    cursor = db.musicians.find({}, {"id": 1, "first_name": 1, "last_name": 1})
+    async for doc in cursor:
+        fname = doc.get("first_name", "").strip()
+        lname = doc.get("last_name", "").strip()
+        key = f"{fname} {lname}".strip().lower()
+        if key:
+            cache["musicians"][key] = int(doc["id"])
+
+    print(f"🚀 Memoria lista: {sum(len(v) for v in cache.values())} registros cargados.")
 
 async def get_next_id(db, collection_name):
+    # Solo consultamos el ID más alto para autoincrementar
     last_doc = await db[collection_name].find_one(sort=[("id", -1)])
-    return (last_doc["id"] + 1) if last_doc else 1
+    return (int(last_doc["id"]) + 1) if last_doc else 1
 
 async def get_or_create_id_with_status(db, collection, field, name):
     if not name or str(name).lower() == "nan": 
@@ -54,122 +66,107 @@ async def get_or_create_id_with_status(db, collection, field, name):
     name_clean = str(name).strip()
     name_key = name_clean.lower()
     
+    # 1. BÚSQUEDA EXCLUSIVA EN CACHÉ (Súper rápido)
     if name_key in cache[collection]:
-        return cache[collection][name_key], False
+        return int(cache[collection][name_key]), False
     
-    regex = re.compile(f"^{re.escape(name_clean)}$", re.IGNORECASE)
-    doc = await db[collection].find_one({field: regex})
-    
-    if doc:
-        cache[collection][name_key] = doc["id"]
-        return doc["id"], False
-    
+    # 2. SI NO ESTÁ EN CACHÉ, ES NUEVO (Solo una inserción)
     new_id = await get_next_id(db, collection)
-    await db[collection].insert_one({"id": new_id, field: name_clean})
-    cache[collection][name_key] = new_id
-    return new_id, True
+    if collection == "musicians":
+        parts = name_clean.split()
+        first_name = parts[0] if len(parts) > 0 else name_clean
+        last_name = parts[-1] if len(parts) > 1 else ""
+        await db.musicians.insert_one({
+            "id": int(new_id),
+            "first_name": first_name,
+            "last_name": last_name
+        })
+    else:
+        await db[collection].insert_one({"id": int(new_id), field: name_clean})
+    
+    # Actualizamos caché para no re-insertar si aparece de nuevo en el Excel
+    cache[collection][name_key] = int(new_id)
+    return int(new_id), True
 
 async def process_list_with_logs(db, collection, field, raw_value, label):
-    """
-    Divide por '/' o ',' usando regex para manejar múltiples separadores.
-    """
     if not raw_value or pd.isna(raw_value):
         return [], []
     
-    # Regex split: divide por '/' o ',' (y limpia espacios alrededor)
     names = [n.strip() for n in re.split(r'[/,]', str(raw_value)) if n.strip()]
-    
-    ids = []
-    logs = []
-    
+    ids, logs = [], []
     for name in names:
         id_found, is_new = await get_or_create_id_with_status(db, collection, field, name)
-        if id_found:
+        if id_found is not None:
             ids.append(id_found)
-            status_icon = " ✅" if is_new else ""
-            logs.append(f"{label}: {name}{status_icon}")
-            
+            if is_new:
+                logs.append(f"{label}: {name} ✅")
     return ids, logs
 
 async def run_import():
-    confirm = input("⚠️ ¿Ejecutar importación (Soporta '/' y ',')? (SI/NO): ")
+    confirm = input("⚠️ ¿Ejecutar carga OPTIMIZADA (Cache Full)? (SI/NO): ")
     if confirm.upper() != "SI": return
 
-    current_dir = Path(__file__).parent
-    file_path = current_dir.parent / "data_sources" / "santana_master_v2.xlsx"
-    
     db = await db_manager.connect()
+    file_path = Path(__file__).parent.parent / "data_sources" / "santana_master_v2.xlsx"
 
     try:
         await preload_caches(db)
         df = pd.read_excel(file_path, dtype={'Fecha lanzamiento': str})
-        print(f"\n📈 Procesando {len(df)} filas...\n" + "—"*115)
+        print(f"\n📈 Procesando {len(df)} filas...\n" + "—"*120)
 
         for index, row in df.iterrows():
             song_title = clean_str(row["Canción"])
             album_title = clean_str(row["Album"])
-            row_logs = []
-
-            # --- 1. ÁLBUM ---
+            
+            # 1. Álbum (Caché)
             album_key = album_title.lower().strip()
+            is_new_alb = False
             if album_key in cache["albums"]:
-                current_album_id = cache["albums"][album_key]
-                row_logs.append(f"ALBUM: {album_title}")
+                curr_alb_id = cache["albums"][album_key]
             else:
-                new_album_id = await get_next_id(db, "albums")
-                raw_date = row.get("Fecha lanzamiento")
-                release_date_obj = None
-                try: 
-                    if pd.notna(raw_date) and clean_str(raw_date):
-                        release_date_obj = datetime.strptime(clean_str(raw_date), '%Y-%m-%d')
-                except: pass
-                
+                curr_alb_id = await get_next_id(db, "albums")
                 await db.albums.insert_one({
-                    "id": new_album_id, "title": album_title, "is_live": False,
+                    "id": int(curr_alb_id), "title": album_title, "is_live": False,
                     "release_year": int(row["Año Lanzamiento"]) if pd.notna(row.get("Año Lanzamiento")) else None,
-                    "cover": format_cover_name(album_title), "release_date": release_date_obj
+                    "cover": format_cover_name(album_title)
                 })
-                
-                current_album_id = new_album_id
-                cache["albums"][album_key] = new_album_id
-                row_logs.append(f"ALBUM: {album_title} ✅")
+                cache["albums"][album_key] = curr_alb_id
+                is_new_alb = True
 
-            # --- 2. MAESTROS (Separación inteligente / ,) ---
+            # 2. Maestros (Caché + Inserción si no existen)
             c_ids, c_logs = await process_list_with_logs(db, "composers", "full_name", row.get("Compositores"), "Comp")
             g_ids, g_logs = await process_list_with_logs(db, "genres", "name", row.get("Género"), "Gen")
             inv_ids, inv_logs = await process_list_with_logs(db, "guest_artists", "full_name", row.get("Artistas invitados"), "Guest")
-            vi_ids, vi_logs = await process_list_with_logs(db, "guest_artists", "full_name", row.get("Cantantes invitados"), "GuestVoc")
-            vp_ids, vp_logs = await process_list_with_logs(db, "musicians", "full_name", row.get("Cantantes principales"), "LeadVoc")
+            vi_ids, vi_logs = await process_list_with_logs(db, "guest_artists", "full_name", row.get("Cantantes invitados"), "VocG")
+            vp_ids, vp_logs = await process_list_with_logs(db, "musicians", "N/A", row.get("Cantantes principales"), "Lead")
 
-            row_logs.extend(c_logs + g_logs + inv_logs + vi_logs + vp_logs)
+            # 3. Track (Sincronización)
+            track_data = {
+                "album_id": curr_alb_id, "title": song_title, "composer_ids": c_ids,
+                "duration": clean_str(row.get("Duración")), "genre_ids": g_ids,
+                "duration_seconds": int(row.get("Duración en Segundos")) if pd.notna(row.get("Duración en Segundos")) else 0,
+                "metadata": {
+                    "key": clean_str(row.get("Tono de la canción")), "is_instrumental": to_bool(row.get("Es instrumental?")),
+                    "is_live": to_bool(row.get("Canción en vivo?")), "is_love_song": to_bool(row.get("Es canción de amor?"))
+                },
+                "track_number": int(row["Nro Pista"]) if pd.notna(row.get("Nro Pista")) else 0,
+                "guest_artist_ids": inv_ids, "guest_lead_vocal_ids": vi_ids, "lead_vocal_ids": vp_ids
+            }
 
-            # --- 3. TRACK ---
-            track_exists = await db.tracks.find_one({"title": re.compile(f"^{re.escape(song_title)}$", re.IGNORECASE), "album_id": current_album_id})
+            res = await db.tracks.update_one(
+                {"title": re.compile(f"^{re.escape(song_title)}$", re.IGNORECASE), "album_id": curr_alb_id},
+                {"$set": track_data}, upsert=True
+            )
 
-            if not track_exists:
-                
-                await db.tracks.insert_one({
-                    "album_id": current_album_id, "title": song_title, "composer_ids": c_ids,
-                    "duration": clean_str(row.get("Duración")), "genre_ids": g_ids,
-                    "duration_seconds": int(row.get("Duración Segundos")) if pd.notna(row.get("Duración Segundos")) else 0,
-                    "metadata": {
-                        "key": clean_str(row.get("Tono de la canción")), "is_instrumental": to_bool(row.get("Es instrumental?")),
-                        "is_live": to_bool(row.get("Canción en vivo?")), "is_love_song": to_bool(row.get("Es canción de amor?"))
-                    },
-                    "track_number": int(row["Nro Pista"]) if pd.notna(row.get("Nro Pista")) else 0,
-                    "guest_artist_ids": inv_ids, "guest_lead_vocal_ids": vi_ids, "lead_vocal_ids": vp_ids
-                })
-                
-                row_logs.append(f"TRACK: {song_title} ✅")
-            else:
-                row_logs.append(f"TRACK: {song_title}")
-
-            print(f"L{index + 1:03d} | " + " | ".join(row_logs))
-
-        print("—"*115 + "\n🏁 Proceso completado exitosamente.")
+            # Log minimalista y eficiente
+            masters_status = " | ".join(c_logs + g_logs + inv_logs + vi_logs + vp_logs)
+            alb_status = f"{album_title}{' ✅' if is_new_alb else ''}"
+            track_icon = "✨" if res.upserted_id else "🔄"
+            
+            print(f"L{index+1:03d} | {track_icon} {song_title[:20]:<20} | {alb_status[:25]:<25} | {masters_status}")
 
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
+        print(f"❌ Error: {e}")
     finally:
         await db_manager.close()
 

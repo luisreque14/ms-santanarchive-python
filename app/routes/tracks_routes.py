@@ -97,3 +97,14 @@ async def get_by_live_in_studio_albums(
     service: TrackService = Depends(get_track_service)
 ):
     return await service.get_by_live_in_studio_albums()
+
+@router.get(
+    "/by-composer", 
+    response_model=List[TrackWithAlbumDetailsDto],
+    response_model_by_alias=True
+)
+async def get_by_composer_id(
+    composerId: int = Query(0), 
+    service: TrackService = Depends(get_track_service)
+):
+    return await service.get_by_composer_id(composerId)

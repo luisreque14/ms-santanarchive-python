@@ -7,6 +7,7 @@ class ExecutiveSummaryRepository:
 
     async def get_executive_summary(self) -> dict:
         _CARLOS_MUSICIAN_ID = 1
+        _CARLOS_COMPOSER_ID = 11
         
         """
         Método Orquestador: Ejecuta todas las consultas en paralelo.
@@ -22,7 +23,8 @@ class ExecutiveSummaryRepository:
             self._get_most_instrumental_album(),
             self.get_count_albums_without_instrumentals(),
             self.get_total_guest_artists(),
-            self.get_total_live_tracks_in_studio_albums()
+            self.get_total_live_tracks_in_studio_albums(),
+            self.get_total_by_composer(_CARLOS_COMPOSER_ID)
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
@@ -36,6 +38,7 @@ class ExecutiveSummaryRepository:
             count_albums_without_instrumentals,
             total_guest_artists,
             total_live_tracks_in_studio_albums,
+            total_tracks_carlos_composer
         ) = await asyncio.gather(*tasks)
 
         # Unimos todas las piezas en el resumen final
@@ -48,7 +51,8 @@ class ExecutiveSummaryRepository:
             "most_instrumental_album": most_instrumental_album,
             "count_albums_without_instrumentals": count_albums_without_instrumentals,
             "total_guest_artists": total_guest_artists,
-            "total_live_tracks_in_studio_albums":total_live_tracks_in_studio_albums
+            "total_live_tracks_in_studio_albums":total_live_tracks_in_studio_albums,
+            "total_tracks_carlos_composer":total_tracks_carlos_composer
         }
 
     # --- Métodos Privados de Apoyo ---
@@ -388,3 +392,7 @@ class ExecutiveSummaryRepository:
         result = await cursor.to_list(length=1)
         
         return result[0]["total_count"] if result else 0
+    
+    async def get_total_by_composer(self, composer_id):
+        query = {"composer_ids": composer_id}
+        return await self.db.tracks.count_documents(query)

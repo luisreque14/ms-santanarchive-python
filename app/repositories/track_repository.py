@@ -254,3 +254,62 @@ class TrackRepository:
 
         cursor = self.db.tracks.aggregate(pipeline)
         return await cursor.to_list(length=None)
+    
+    async def get_by_composer_id(self, composer_id: int) -> List[dict]:
+        pipeline = [
+            # 1. Filtramos tracks que incluyan al ID del compositor
+            {
+                "$match": {
+                    "composer_ids": composer_id
+                }
+            },
+            # 2. Join con albums
+            {
+                "$lookup": {
+                    "from": "albums",
+                    "localField": "album_id",
+                    "foreignField": "id",
+                    "as": "album_info"
+                }
+            },
+            {"$unwind": "$album_info"},
+            
+            # 3. Join con la colección de composers para obtener los nombres
+            {
+                "$lookup": {
+                    "from": "composers",
+                    "localField": "composer_ids",
+                    "foreignField": "id",
+                    "as": "composers_details"
+                }
+            },
+            
+            # 4. Proyección final (formateo de salida)
+            {
+                "$project": {
+                    "_id": 0,
+                    "track_number": 1,
+                    "title": 1,
+                    "duration": 1,
+                    "duration_seconds": 1,
+                    "album_id": 1,
+                    "album_title": "$album_info.title",
+                    "album_release_year": "$album_info.release_year",
+                    "album_release_date": "$album_info.release_date",
+                    "album_cover": "$album_info.cover",
+                    # Retorna la lista de nombres como strings: ["Name 1", "Name 2"]
+                    "composers": "$composers_details.full_name",
+                    "lead_vocal_ids": 1
+                }
+            },
+            # 5. Ordenamos por año (descendente) y número de track
+            {
+                "$sort": {
+                    "album_release_year": -1,
+                    "track_number": 1
+                }
+            }
+        ]
+
+        cursor = self.db.tracks.aggregate(pipeline)
+        return await cursor.to_list(length=None)
