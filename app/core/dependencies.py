@@ -18,7 +18,7 @@ from app.repositories.performance_repository import PerformanceRepository
 from app.services.performance_service import PerformanceService
 from app.repositories.track_repository import TrackRepository
 from app.services.track_service import TrackService
-from app.repositories.executive_summary_repository import ExecutiveSummaryRepository
+from app.repositories.discography_executive_summary_repository import DiscographyExecutiveSummaryRepository
 from app.repositories.venue_repository import VenueRepository
 from app.services.venue_service import VenueService
 from app.repositories.venue_masters_repository import VenueMastersRepository
@@ -26,7 +26,7 @@ from app.services.venue_masters_service import VenueMastersService
 
 def get_stats_service(db=Depends(get_db)):
     repo = StatisticsRepository(db)
-    executiveSummaryRepo = ExecutiveSummaryRepository(db)
+    executiveSummaryRepo = DiscographyExecutiveSummaryRepository(db)
     return StatisticsService(repo, executiveSummaryRepo)
 
 def get_album_service(db=Depends(get_db)):

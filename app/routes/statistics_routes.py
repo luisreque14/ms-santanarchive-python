@@ -41,7 +41,7 @@ async def get_key_stats(
     return await service.get_key_stats_logic(album_id)
 
 @router.get(
-    "/executive-summary", 
+    "/discography/executive-summary", 
     response_model=ExecutiveSummaryDto,
     response_model_by_alias=True
 )

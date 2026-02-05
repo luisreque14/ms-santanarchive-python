@@ -1,8 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import asyncio
-from typing import List
 
-class ExecutiveSummaryRepository:
+class DiscographyExecutiveSummaryRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 

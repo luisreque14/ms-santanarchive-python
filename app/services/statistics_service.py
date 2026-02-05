@@ -1,6 +1,6 @@
 from typing import Optional, List
 from app.repositories.statistics_repository import StatisticsRepository
-from app.repositories.executive_summary_repository import ExecutiveSummaryRepository
+from app.repositories.discography_executive_summary_repository import DiscographyExecutiveSummaryRepository
 from app.dtos.statistics.executive_summary_dto import ExecutiveSummaryDto
 from app.dtos.statistics.discography.track_key_dto import TrackKeyStatsDto
 from app.dtos.statistics.discography_dto import (
@@ -11,9 +11,9 @@ from app.dtos.statistics.discography_dto import (
     InstrumentalTrackByYearDto
     )
 class StatisticsService:
-    def __init__(self, repository: StatisticsRepository, executiveSummaryRepository: ExecutiveSummaryRepository):
+    def __init__(self, repository: StatisticsRepository, discographyExecutiveSummaryRepository: DiscographyExecutiveSummaryRepository):
         self.repo = repository
-        self.executiveSummaryRepository = executiveSummaryRepository
+        self.discographyExecutiveSummaryRepository = discographyExecutiveSummaryRepository
 
     async def get_instrumental_logic(self, album_id: Optional[int] = None) -> Optional[InstrumentalStatsDto]:
         # Business Logic: Determine the filter scope
@@ -65,7 +65,7 @@ class StatisticsService:
         return [GuestArtistReportDto.model_validate(report) for report in results_db]
 
     async def get_executive_summary(self) -> Optional[ExecutiveSummaryDto]:
-        results = await self.executiveSummaryRepository.get_executive_summary()
+        results = await self.discographyExecutiveSummaryRepository.get_executive_summary()
             
         return ExecutiveSummaryDto.model_validate(results)
         
