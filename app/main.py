@@ -18,6 +18,7 @@ from app.routes.composers_routes import router as composer_router
 from app.routes.tracks_routes import router as track_router
 from app.routes.statistics_routes import router as statistics_router
 from app.routes.venue_routes import router as venue_routes
+from app.routes.venue_masters_routes import router as venue_masters_routes
 
 env_type = os.getenv("ENVIRONMENT", "development")
 env_file = ".env.production" if env_type == "production" else ".env"
@@ -90,6 +91,7 @@ app.include_router(composer_router, prefix=API_V1, dependencies=[Depends(validat
 app.include_router(track_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 app.include_router(statistics_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 app.include_router(venue_routes, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
+app.include_router(venue_masters_routes, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 
 #MÁS REPORTES:
 #Canciones en las que canta Santana (agregar campo Lead Vocals en Tracks (como arreglo de Ids), que haga referencia a la canción)
