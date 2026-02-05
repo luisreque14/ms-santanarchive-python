@@ -45,7 +45,10 @@ Colección "venues":
 -show_time: columna "Hora Función". Tipo string, opcional.
 -concert_type_id: referencia a concert_type_id de "concert_types". Tipo Int, Obligatorio.
 -tour_id: referencia a tour_id de "tours". Tipo Int, Opcional.
--city_id: referencia a city_id de "cities". Tipo Int, Obligatorio.
+-city_id: referencia a id de "cities". Tipo Int, Obligatorio.
+-state_id: referencia a state_id de "cities". Tipo Int, Opcional.
+-country_id: referencia a country_id de "cities". Tipo Int, Obligatorio.
+-continent_id: referencia a continent_id de "countries". Tipo Int, Obligatorio.
 -song_count: cantidad de canciones relacionadas en "venue_songs". Tipo Int, Obligatorio. Si no hay, el valor es cero.
 -venue_year: año de venue_date.
 
@@ -107,8 +110,6 @@ Crea un programa en Python para que lea el Excel y realice el registro según la
         Caso B: "AC/DC" -> No se parte (porque no hay espacios).
     -Si una canción se parte en dos, ambas deben mantener los mismos guest_artist_ids y el mismo is_cover de esa fila del Excel.
 
-Duda: ¿Si una canción se parte en dos, ambas mantienen los mismos guest_artist_ids y el mismo is_cover de esa fila del Excel? (Asumiré que sí, a menos que indiques lo contrario).
-
 4. Todos los campos de las colecciones descritas al inicio deben existir. Si no se detecta algún valor, establecerlo en null.
 
 5. Se deben usar los ids de las colecciones existentes para referenciar a venues.
@@ -120,7 +121,11 @@ Duda: ¿Si una canción se parte en dos, ambas mantienen los mismos guest_artist
 
 8. Aplica trim a todos los datos y, para las comparaciones, no hacer distinciones entre mayúsculas y minúsculas.
 
-9. El programa debe ser idempotente. La llave del Excel es "Fecha", "Venue", "Tipo de Función" y "Ciudad". Cada vez que lo ejecute, debe registrar lo que no existe y, para los venues existentes, eliminar los venue_songs existentes y reemplazar por una nueva lista según el Excel.
+9. El programa debe ser idempotente. La llave del Excel es "Fecha", "Venue", "Tipo de Función" y "Ciudad". 
+  9.1. Cada vez que lo ejecute, debe registrar lo que no existe.
+  9.2. Para los venues existentes: 
+    -Eliminar los venue_songs existentes y reemplazar por una nueva lista según el Excel.
+    -Actualizar estos campos venue_type_id, show_type_id, show_time, concert_type_id, tour_id, state_id, country_id.
 
 10. Debe haber logs para lo siguiente:
   10.1. Indicar si el concierto ya existe, con ícono 🆕

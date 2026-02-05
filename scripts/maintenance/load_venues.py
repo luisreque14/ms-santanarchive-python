@@ -37,15 +37,24 @@ class VenuesLoader:
                 # Llave: (fecha_str, venue_name_lower, show_type_id, city_id)
                 self.cache[coll] = {
                     (d.get('venue_date_str'), d.get('venue_name').lower(), d.get('show_type_id'), d.get('city_id')): d.get('id') 
-                    for d in data
+                    for d in data if d.get('venue_date_str')
                 }
             elif coll == 'cities':
                 self.cache[coll] = data
             else:
                 name_field = 'name' if coll in ['continents', 'countries', 'states'] else f"{coll[:-1]}_name"
                 if coll == 'guest_artists_venues': name_field = 'guest_artist_name'
-                self.cache[coll] = {str(d.get(name_field)).strip().lower(): d.get('id') or d.get(f"{coll[:-1]}_id") for d in data}
-
+                
+                if coll == 'guest_artists_venues':
+                    id_field = 'guest_artist_venue_id'
+                else:
+                    id_field = 'id' if coll in ['continents', 'countries', 'states'] else f"{coll[:-1]}_id"
+                
+                self.cache[coll] = {
+                    str(d.get(name_field)).strip().lower(): d.get(id_field) 
+                    for d in data if d.get(name_field)
+                }
+                
     async def get_next_id(self, counter_name):
         """Usa la colección counters (Punto 11)"""
         counter = await self.db.counters.find_one_and_update(
@@ -89,13 +98,19 @@ class VenuesLoader:
         matched_cities = [c for c in self.cache['cities'] if self.normalize(c['name']) == city_name and c.get('country_id') == country_id]
         
         if matched_cities:
-            return matched_cities[0]['id']
+            city_id = matched_cities[0]['id']
         else:
             city_id = await self.get_next_id('city_id')
             new_city = {'id': city_id, 'name': str(row['Ciudad']).strip(), 'country_id': country_id, 'state_id': state_id, 'code': None}
             await self.db.cities.insert_one(new_city)
             self.cache['cities'].append(new_city)
-            return city_id
+        
+        return {
+            'city_id': city_id,
+            'state_id': state_id,
+            'country_id': country_id,
+            'continent_id': cont_id
+        }
 
     async def run(self, file_path):
         await self.initialize()
@@ -118,52 +133,78 @@ class VenuesLoader:
             date_dt = None
             venue_date_str = ""
 
-            try:
-                for fmt in ['%Y/%m/%d', '%d/%m/%Y', '%Y-%m-%d']:
-                    try: 
+            raw_val = first_row['Fecha']
+            if isinstance(raw_val, datetime):
+                date_dt = raw_val
+            else:
+                raw_date = str(raw_val).strip().split(' ')[0]
+                # Intentar varios formatos si es string
+                for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%d/%m/%Y', '%m/%d/%Y']:
+                    try:
                         date_dt = datetime.strptime(raw_date, fmt)
                         break
                     except: continue
-                if not date_dt: raise ValueError
-                
-                # Formateo de fecha y hora
-                if show_time:
-                    try:
-                        # Soporta formatos como HH:MM o HH:MM:SS
-                        time_parts = show_time.split(':')
-                        date_dt = date_dt.replace(
-                            hour=int(time_parts[0]), 
-                            minute=int(time_parts[1]),
-                            second=int(time_parts[2]) if len(time_parts) > 2 else 0
-                        )
-                    except:
-                        logger.warning(f"⚠️ Hora mal formateada '{show_time}', se usará 00:00:00")
-                
-                venue_date_str = date_dt.strftime('%Y/%m/%d %H:%M:%S')
-            except:
-                logger.error(f"⚠️ Fecha incorrecta: {raw_date}")
+
+            if not date_dt:
+                logger.error(f"⚠️ Fecha no reconocida o vacía: {first_row['Fecha']}")
                 continue
+
+            # 2. Procesar la hora con tu variable show_time
+            h, m, s = 0, 0, 0
+            clean_time = "00:00:00" # Valor por defecto
+            
+            if show_time and ':' in show_time:
+                try:
+                    parts = show_time.split(':')
+                    h = int(parts[0])
+                    m = int(parts[1]) if len(parts) > 1 else 0
+                    s = int(parts[2]) if len(parts) > 2 else 0
+                    clean_time = f"{h:02d}:{m:02d}:{s:02d}"
+                except:
+                    logger.warning(f"⚠️ Hora mal formateada '{show_time}', usando 00:00:00")
+
+            # 3. Normalizar el objeto final y el string de la llave
+            date_dt = date_dt.replace(hour=h, minute=m, second=s, microsecond=0)
+            venue_date_str = f"{date_dt.strftime('%Y/%m/%d')} {clean_time}"
 
             # Obtener IDs de Maestros
             st_id = await self.get_or_create_master('show_types', first_row['Tipo de Función'], 'show_type_id', 'show_type_name')
             ct_id = await self.get_or_create_master('concert_types', first_row['Tipo de Concierto'], 'concert_type_id', 'concert_type_name')
             vt_id = await self.get_or_create_master('venue_types', first_row['Tipo de Lugar'], 'venue_type_id', 'venue_type_name')
             t_id = await self.get_or_create_master('tours', first_row['Tour'], 'tour_id', 'tour_name') if pd.notna(first_row['Tour']) else None
-            city_id = await self.process_geo(first_row)
+            geo_data = await self.process_geo(first_row)
+            city_id = geo_data['city_id']
 
             # Idempotencia de Venue (Punto 9)
-            venue_key = (date_dt.strftime('%Y/%m/%d'), self.normalize(first_row['Venue']), st_id, city_id)
+            venue_key = (venue_date_str, self.normalize(first_row['Venue']), st_id, city_id)
             venue_id = self.cache['venues'].get(venue_key)
             
             if venue_id:
                 logger.info(f"✅ Actualizando: {venue_date_str} - {first_row['Venue']}")
                 await self.db.venue_songs.delete_many({'venue_id': venue_id})
+                
+                update_fields = {
+                    'venue_type_id': vt_id,
+                    'show_type_id': st_id, 
+                    'show_time': show_time or None, 
+                    'concert_type_id': ct_id,
+                    'tour_id': t_id,
+                    'state_id': int(geo_data['state_id']) if geo_data['state_id'] is not None else None,
+                    'country_id': int(geo_data['country_id']),
+                    'continent_id': int(geo_data['continent_id'])
+                }
+                
+                await self.db.venues.update_one(
+                    {'id': venue_id}, 
+                    {'$set': update_fields}
+                )
             else:
                 venue_id = await self.get_next_id('venue_id')
                 logger.info(f"🆕 Nuevo: {venue_date_str} - {first_row['Venue']}")
                 venue_doc = {
                     'id': venue_id, 
                     'venue_date': date_dt, 
+                    'venue_date_str': venue_date_str,
                     'venue_name': str(first_row['Venue']).strip(), 
                     'venue_type_id': vt_id,
                     'show_type_id': st_id, 
@@ -171,6 +212,9 @@ class VenuesLoader:
                     'concert_type_id': ct_id,
                     'tour_id': t_id, 
                     'city_id': city_id, 
+                    'state_id': geo_data['state_id'],
+                    'country_id': geo_data['country_id'],
+                    'continent_id': geo_data['continent_id'],
                     'venue_year': date_dt.year, 
                     'song_count': 0
                 }
@@ -185,7 +229,8 @@ class VenuesLoader:
                 
                 # Guest Artists
                 guest_ids = []
-                if pd.notna(s_row['Artista Invitado']):
+                raw_guests = s_row.get('Artista Invitado')
+                if pd.notna(raw_guests) and str(raw_guests).strip() != "":
                     for art in str(s_row['Artista Invitado']).split(','):
                         g_id = await self.get_or_create_master('guest_artists_venues', art.strip(), 'guest_artist_venue_id', 'guest_artist_name')
                         guest_ids.append(g_id)
@@ -195,8 +240,11 @@ class VenuesLoader:
                 for sub_s in sub_songs:
                     t_id_ref = self.cache['tracks'].get(self.normalize(sub_s))
                     songs_to_insert.append({
-                        'venue_id': venue_id, 'song_number': song_counter, 'song_name': sub_s,
-                        'guest_artist_ids': guest_ids, 'track_ids': [t_id_ref] if t_id_ref else [],
+                        'venue_id': venue_id, 
+                        'song_number': song_counter, 
+                        'song_name': sub_s,
+                        'guest_artist_ids': guest_ids, 
+                        'track_ids': [t_id_ref] if t_id_ref else [],
                         'is_cover': str(s_row['Es Cover?']).strip().upper() == 'VERDADERO'
                     })
                     song_counter += 1
