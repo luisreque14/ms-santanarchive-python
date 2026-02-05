@@ -1,9 +1,9 @@
 from typing import List
-from app.repositories.venue_masters_repository import VenueMastersRepository
-from app.dtos.venue_masters_dto import ConcertTypeDTO, ShowTypeDTO, VenueTypeDTO, TourDTO
+from app.repositories.concert_masters_repository import ConcertMastersRepository
+from app.dtos.concert_masters_dto import ConcertTypeDTO, ShowTypeDTO, VenueTypeDTO, TourDTO
 
-class VenueMastersService:
-    def __init__(self, repository: VenueMastersRepository):
+class ConcertMastersService:
+    def __init__(self, repository: ConcertMastersRepository):
         self.repository = repository
 
     async def get_concert_types(self) -> List[ConcertTypeDTO]:

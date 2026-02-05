@@ -1,4 +1,4 @@
-# python -m scripts.check_data.check_venue_tracks
+# python -m scripts.check_data.check_concert_tracks
 import asyncio
 import pandas as pd
 import re

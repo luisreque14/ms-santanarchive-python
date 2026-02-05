@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 
-class VenueDto(BaseModel):
-    venueDate: datetime = Field(..., validation_alias="venue_date", serialization_alias="venueDate")
+class ConcertDto(BaseModel):
+    concertDate: datetime = Field(..., validation_alias="concert_date", serialization_alias="concertDate")
     venueName: str = Field(..., validation_alias="venue_name", serialization_alias="venueName")
     
     venueTypeId: int = Field(..., validation_alias="venue_type_id", serialization_alias="venueTypeId")
@@ -31,7 +31,7 @@ class VenueDto(BaseModel):
     continentId: int = Field(..., validation_alias="continent_id", serialization_alias="continentId")
     continentName: str = Field(..., validation_alias="continent_name", serialization_alias="continentName")
     
-    venueYear: int = Field(..., validation_alias="venue_year", serialization_alias="venueYear")
+    concertYear: int = Field(..., validation_alias="concert_year", serialization_alias="concertYear")
     songCount: int = Field(..., validation_alias="song_count", serialization_alias="songCount")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)

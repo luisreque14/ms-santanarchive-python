@@ -11,9 +11,9 @@ Crea un pipeline para obtener conciertos (venues) en base a lo siguientes filtro
 
 El rango de fecha no debe exceder a más 1 año y si envío la misma fecha en ambos campos debe obtener los conciertos de ese día sin importar la hora.
 
-Debe devolver un listado de venues con estos campos:
+Debe devolver un listado de concerts con estos campos:
 
--venue_date: en formato Datetime
+-concert_date: en formato Datetime
 -venue_name
 -venue_type_id
 -venue_type_name (venue_type_name de la colección venue_types)
@@ -31,7 +31,7 @@ Debe devolver un listado de venues con estos campos:
 -country_name (name de la colección countries)
 -continent_id
 -continent_name (name de la colección continents)
--venue_year
+-concert_year
 -song_count
 
 Te paso un ejemplo de cómo trabajo los pipelines actualmente:
@@ -106,18 +106,18 @@ tours:
   "tour_name": "Fillmore 1967"
 }
 
-venues:
+concerts:
 {
   "_id": {
     "$oid": "6984b505a0981ab0d920ab2f"
   },
   "id": 236,
-  "venue_date": {
+  "concert_date": {
     "$date": {
       "$numberLong": "-80352000000"
     }
   },
-  "venue_date_str": "1967/06/16 00:00:00",
+  "concert_date_str": "1967/06/16 00:00:00",
   "venue_name": "Fillmore Auditorium",
   "venue_type_id": 5,
   "show_type_id": 1,
@@ -128,7 +128,7 @@ venues:
   "state_id": 1,
   "country_id": 1,
   "continent_id": 1,
-  "venue_year": 1967,
+  "concert_year": 1967,
   "song_count": 4
 }
 

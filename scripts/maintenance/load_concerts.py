@@ -1,8 +1,8 @@
 #Este script lee el archivo Conciertos-Consolidado y registra (insert/update) los conciertos. Las canciones de conciertos se eliminan y se vuelven a crear según el Excel.
 #También, si no existe la ciudad, estado o país, lo registra.
-#Ojo: la llave del venue es fecha-hora, nombre del venue, show_type y ciudad
+#Ojo: la llave del concert es fecha-hora, nombre del concert, show_type y ciudad
 
-# python -m scripts.maintenance.load_venues
+# python -m scripts.maintenance.load_concerts
 import pandas as pd
 import asyncio
 import logging
@@ -13,7 +13,7 @@ from scripts.common.db_utils import db_manager
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger()
 
-class VenuesLoader:
+class ConcertsLoader:
     def __init__(self):
         self.db = None
         self.cache = {}
@@ -24,7 +24,7 @@ class VenuesLoader:
         collections = [
             'show_types', 'concert_types', 'venue_types', 'tours', 
             'continents', 'countries', 'states', 'cities', 
-            'guest_artists_venues', 'tracks', 'venues'
+            'guest_artists_concerts', 'tracks', 'concerts'
         ]
         
         for coll in collections:
@@ -33,20 +33,20 @@ class VenuesLoader:
             
             if coll == 'tracks':
                 self.cache[coll] = {str(d.get('title')).strip().lower(): d.get('id') for d in data}
-            elif coll == 'venues':
+            elif coll == 'concert':
                 # Llave: (fecha_str, venue_name_lower, show_type_id, city_id)
                 self.cache[coll] = {
-                    (d.get('venue_date_str'), d.get('venue_name').lower(), d.get('show_type_id'), d.get('city_id')): d.get('id') 
-                    for d in data if d.get('venue_date_str')
+                    (d.get('concert_date_str'), d.get('venue_name').lower(), d.get('show_type_id'), d.get('city_id')): d.get('id') 
+                    for d in data if d.get('concert_date_str')
                 }
             elif coll == 'cities':
                 self.cache[coll] = data
             else:
                 name_field = 'name' if coll in ['continents', 'countries', 'states'] else f"{coll[:-1]}_name"
-                if coll == 'guest_artists_venues': name_field = 'guest_artist_name'
+                if coll == 'guest_artists_concerts': name_field = 'guest_artist_name'
                 
-                if coll == 'guest_artists_venues':
-                    id_field = 'guest_artist_venue_id'
+                if coll == 'guest_artists_concerts':
+                    id_field = 'guest_artist_concert_id'
                 else:
                     id_field = 'id' if coll in ['continents', 'countries', 'states'] else f"{coll[:-1]}_id"
                 
@@ -131,7 +131,7 @@ class VenuesLoader:
             raw_date = str(first_row['Fecha']).split(' ')[0] # Asegurar solo fecha
             show_time = str(first_row['Hora Función']).strip() if pd.notna(first_row['Hora Función']) else ""
             date_dt = None
-            venue_date_str = ""
+            concert_date_str = ""
 
             raw_val = first_row['Fecha']
             if isinstance(raw_val, datetime):
@@ -165,7 +165,7 @@ class VenuesLoader:
 
             # 3. Normalizar el objeto final y el string de la llave
             date_dt = date_dt.replace(hour=h, minute=m, second=s, microsecond=0)
-            venue_date_str = f"{date_dt.strftime('%Y/%m/%d')} {clean_time}"
+            concert_date_str = f"{date_dt.strftime('%Y/%m/%d')} {clean_time}"
 
             # Obtener IDs de Maestros
             st_id = await self.get_or_create_master('show_types', first_row['Tipo de Función'], 'show_type_id', 'show_type_name')
@@ -175,13 +175,13 @@ class VenuesLoader:
             geo_data = await self.process_geo(first_row)
             city_id = geo_data['city_id']
 
-            # Idempotencia de Venue (Punto 9)
-            venue_key = (venue_date_str, self.normalize(first_row['Venue']), st_id, city_id)
-            venue_id = self.cache['venues'].get(venue_key)
+            # Idempotencia de Concert (Punto 9)
+            concert_key = (concert_date_str, self.normalize(first_row['Venue']), st_id, city_id)
+            concert_id = self.cache['concerts'].get(concert_key)
             
-            if venue_id:
-                logger.info(f"✅ Actualizando: {venue_date_str} - {first_row['Venue']}")
-                await self.db.venue_songs.delete_many({'venue_id': venue_id})
+            if concert_id:
+                logger.info(f"✅ Actualizando: {concert_date_str} - {first_row['Venue']}")
+                await self.db.concert_songs.delete_many({'concert_id': concert_id})
                 
                 update_fields = {
                     'venue_type_id': vt_id,
@@ -194,17 +194,17 @@ class VenuesLoader:
                     'continent_id': int(geo_data['continent_id'])
                 }
                 
-                await self.db.venues.update_one(
-                    {'id': venue_id}, 
+                await self.db.concerts.update_one(
+                    {'id': concert_id}, 
                     {'$set': update_fields}
                 )
             else:
-                venue_id = await self.get_next_id('venue_id')
-                logger.info(f"🆕 Nuevo: {venue_date_str} - {first_row['Venue']}")
-                venue_doc = {
-                    'id': venue_id, 
-                    'venue_date': date_dt, 
-                    'venue_date_str': venue_date_str,
+                concert_id = await self.get_next_id('concert_id')
+                logger.info(f"🆕 Nuevo: {concert_date_str} - {first_row['Venue']}")
+                concert_doc = {
+                    'id': concert_id, 
+                    'concert_date': date_dt, 
+                    'concert_date_str': concert_date_str,
                     'venue_name': str(first_row['Venue']).strip(), 
                     'venue_type_id': vt_id,
                     'show_type_id': st_id, 
@@ -215,11 +215,11 @@ class VenuesLoader:
                     'state_id': geo_data['state_id'],
                     'country_id': geo_data['country_id'],
                     'continent_id': geo_data['continent_id'],
-                    'venue_year': date_dt.year, 
+                    'concert_year': date_dt.year, 
                     'song_count': 0
                 }
-                await self.db.venues.insert_one(venue_doc)
-                self.cache['venues'][venue_key] = venue_id
+                await self.db.concerts.insert_one(concert_doc)
+                self.cache['concerts'][concert_key] = concert_id
 
             # Procesar Canciones (Punto 3)
             songs_to_insert = []
@@ -232,7 +232,7 @@ class VenuesLoader:
                 raw_guests = s_row.get('Artista Invitado')
                 if pd.notna(raw_guests) and str(raw_guests).strip() != "":
                     for art in str(s_row['Artista Invitado']).split(','):
-                        g_id = await self.get_or_create_master('guest_artists_venues', art.strip(), 'guest_artist_venue_id', 'guest_artist_name')
+                        g_id = await self.get_or_create_master('guest_artists_concerts', art.strip(), 'guest_artist_concert_id', 'guest_artist_name')
                         guest_ids.append(g_id)
 
                 # Split de canciones " / " (Punto 3)
@@ -240,7 +240,7 @@ class VenuesLoader:
                 for sub_s in sub_songs:
                     t_id_ref = self.cache['tracks'].get(self.normalize(sub_s))
                     songs_to_insert.append({
-                        'venue_id': venue_id, 
+                        'concert_id': concert_id, 
                         'song_number': song_counter, 
                         'song_name': sub_s,
                         'guest_artist_ids': guest_ids, 
@@ -250,12 +250,12 @@ class VenuesLoader:
                     song_counter += 1
 
             if songs_to_insert:
-                await self.db.venue_songs.insert_many(songs_to_insert)
-                await self.db.venues.update_one({'id': venue_id}, {'$set': {'song_count': len(songs_to_insert)}})
+                await self.db.concert_songs.insert_many(songs_to_insert)
+                await self.db.concerts.update_one({'id': concert_id}, {'$set': {'song_count': len(songs_to_insert)}})
 
         logger.info("🏁 Proceso terminado")
 
 if __name__ == "__main__":
-    loader = VenuesLoader()
+    loader = ConcertsLoader()
     FILE_PATH = r"D:\Videos\santanarchive\ms-santanarchive-python\scripts\data_sources\_test_Conciertos-Consolidado.xlsx"
     asyncio.run(loader.run(FILE_PATH))

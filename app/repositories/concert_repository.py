@@ -2,7 +2,7 @@ from typing import Optional, List
 from datetime import datetime, time, timedelta
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-class VenueRepository:
+class ConcertRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
@@ -29,7 +29,7 @@ class VenueRepository:
 
         # 3. Construcción del Match Query dinámico
         match_query = {
-            "venue_date": {"$gte": query_start, "$lte": query_end}
+            "concert_date": {"$gte": query_start, "$lte": query_end}
         }
 
         if concert_type_id: match_query["concert_type_id"] = concert_type_id
@@ -73,7 +73,7 @@ class VenueRepository:
             # Proyección final
             {"$project": {
                 "_id": 0,
-                "venue_date": 1,
+                "concert_date": 1,
                 "venue_name": 1,
                 "venue_type_id": 1,
                 "venue_type_name": "$v_type.venue_type_name",
@@ -92,10 +92,10 @@ class VenueRepository:
                 "country_name": "$country.name",
                 "continent_id": 1,
                 "continent_name": "$continent.name",
-                "venue_year": 1,
+                "concert_year": 1,
                 "song_count": 1
             }},
-            {"$sort": {"venue_date": 1}} # Ordenado cronológicamente
+            {"$sort": {"concert_date": 1}} # Ordenado cronológicamente
         ]
 
-        return await self.db.venues.aggregate(pipeline).to_list(length=None)
+        return await self.db.concerts.aggregate(pipeline).to_list(length=None)

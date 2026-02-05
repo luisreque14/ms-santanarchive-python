@@ -15,10 +15,10 @@ from app.services.performance_service import PerformanceService
 from app.repositories.track_repository import TrackRepository
 from app.services.track_service import TrackService
 from app.repositories.discography_executive_summary_repository import DiscographyExecutiveSummaryRepository
-from app.repositories.venue_repository import VenueRepository
-from app.services.venue_service import VenueService
-from app.repositories.venue_masters_repository import VenueMastersRepository
-from app.services.venue_masters_service import VenueMastersService
+from app.repositories.concert_repository import ConcertRepository
+from app.services.concert_service import ConcertService
+from app.repositories.concert_masters_repository import ConcertMastersRepository
+from app.services.concert_masters_service import ConcertMastersService
 
 def get_stats_service(db=Depends(get_db)):
     repo = StatisticsRepository(db)
@@ -46,8 +46,8 @@ def get_performance_service(db=Depends(get_db)):
 def get_track_service(db=Depends(get_db)):
     return TrackService(TrackRepository(db))
 
-def get_venue_service(db=Depends(get_db)):
-    return VenueService(VenueRepository(db))
+def get_concert_service(db=Depends(get_db)):
+    return ConcertService(ConcertRepository(db))
 
-def get_venue_masters_service(db=Depends(get_db)):
-    return VenueMastersService(VenueMastersRepository(db))
+def get_concert_masters_service(db=Depends(get_db)):
+    return ConcertMastersService(ConcertMastersRepository(db))

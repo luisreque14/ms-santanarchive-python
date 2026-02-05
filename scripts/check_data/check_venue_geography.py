@@ -1,4 +1,4 @@
-# python -m scripts.check_data.check_venue_geography
+# python -m scripts.check_data.check_concert_geography
 import asyncio
 import pandas as pd
 from scripts.common.db_utils import db_manager

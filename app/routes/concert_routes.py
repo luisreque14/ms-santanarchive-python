@@ -1,19 +1,19 @@
 from fastapi import APIRouter, Depends, Query, status
 from typing import List, Optional
 from datetime import datetime
-from app.services.venue_service import VenueService
-from app.dtos.venue_dto import VenueDto
-from app.core.dependencies import get_venue_service
+from app.services.concert_service import ConcertService
+from app.dtos.concert_dto import ConcertDto
+from app.core.dependencies import get_concert_service
 
-router = APIRouter(prefix="/venues", tags=["Venues"])
+router = APIRouter(prefix="/concerts", tags=["Concerts"])
 
 @router.get(
     "/", 
-    response_model=List[VenueDto],
+    response_model=List[ConcertDto],
     response_model_by_alias=True,
     status_code=status.HTTP_200_OK
 )
-async def get_venues(
+async def get_concerts(
     start_date: datetime = Query(..., description="Start date (YYYY-MM-DD)"),
     end_date: datetime = Query(..., description="End date (YYYY-MM-DD)"),
     concert_type_id: Optional[int] = Query(None, alias="concertTypeId"),
@@ -22,10 +22,10 @@ async def get_venues(
     state_id: Optional[int] = Query(None, alias="stateId"),
     country_id: Optional[int] = Query(None, alias="countryId"),
     continent_id: Optional[int] = Query(None, alias="continentId"),
-    service: VenueService = Depends(get_venue_service)
+    service: ConcertService = Depends(get_concert_service)
 ):
     """
-    Get a list of venues/concerts filtered by a date range (max 1 year) 
+    Get a list of concerts filtered by a date range (max 1 year) 
     and optional geographical or tour parameters.
     """
     return await service.get_by_filter(

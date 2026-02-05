@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-class VenueMastersRepository:
+class ConcertMastersRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 

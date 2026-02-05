@@ -35,10 +35,10 @@ Colección "tours":
 -tour_id: correlativo. Tipo Int, Obligatorio.
 -tour_name: columna "Tour". Tipo String, Obligatorio.
 
-Colección "venues":
+Colección "concerts":
 -id: correlativo numérico. Usar la colección "counters" para crear una secuencia venue_id (en caso no exista).
--venue_date: columna "Fecha" y "Hora Función". Tipo Timestamp, Obligatorio.
--venue_date_str: columna "Fecha". Tipo string (será la fecha en formato año/mes/día), Obligatorio.
+-concert_date: columna "Fecha" y "Hora Función". Tipo Timestamp, Obligatorio.
+-concert_date_str: columna "Fecha". Tipo string (será la fecha en formato año/mes/día), Obligatorio.
 -venue_name: columna "Venue". Tipo String, Obligatorio.
 -venue_type_id: referencia a venue_type_id de "venue_types". Tipo Int, Obligatorio.
 -show_type_id: referencia a show_type_id de "show_types". Tipo Int, Obligatorio.
@@ -49,18 +49,18 @@ Colección "venues":
 -state_id: referencia a state_id de "cities". Tipo Int, Opcional.
 -country_id: referencia a country_id de "cities". Tipo Int, Obligatorio.
 -continent_id: referencia a continent_id de "countries". Tipo Int, Obligatorio.
--song_count: cantidad de canciones relacionadas en "venue_songs". Tipo Int, Obligatorio. Si no hay, el valor es cero.
--venue_year: año de venue_date.
+-song_count: cantidad de canciones relacionadas en "concert_songs". Tipo Int, Obligatorio. Si no hay, el valor es cero.
+-concert_year: año de concert_date.
 
-Coleccion "guest_artists_venues"
--guest_artist_venue_id: correlativo. Tipo Int, Obligatorio.
+Coleccion "guest_artists_concerts"
+-guest_artist_concert_id: correlativo. Tipo Int, Obligatorio.
 -guest_artist_name: columna "Artista Invitado". Tipo String, Obligatorio.
 
-Colección "venue_songs":
--venue_id: id de venue. Tipo Int, Obligatorio.
--song_number: correlativo por venue_id. Empieza en 1 hasta el N, según la cantidad de canciones dentro de un venue_id. Tipo Int, Obligatorio
+Colección "concert_songs":
+-concert_id: id de concert. Tipo Int, Obligatorio.
+-song_number: correlativo por concert_id. Empieza en 1 hasta el N, según la cantidad de canciones dentro de un concert_id. Tipo Int, Obligatorio
 -song_name: columna "Canción". Tipo String, Obligatorio.
--guest_artist_ids: lista con ids de referencia a guest_artist_venue_id de "guest_artists_venues". Opcional pero el atributo debe existir con una lista vacía de tipo Int.
+-guest_artist_ids: lista con ids de referencia a guest_artist_concert_id de "guest_artists_concerts". Opcional pero el atributo debe existir con una lista vacía de tipo Int.
 -track_ids: lista con ids de referencia a id de "tracks". Opcional pero el atributo debe existir con una lista vacía de tipo Int.
 -is_cover: Si columna "Es Cover?" es "SI", true, sino, false. Tipo Boolean, Obligatorio.
 
@@ -69,9 +69,9 @@ Crea un programa en Python para que lea el Excel y realice el registro según la
 
 1. La fecha puede estar en formato año/mes/día o día/mes/año. Si no es así, indicar en un log y continuar con la siguiente fila del Excel.
   1.1. Si el campo "Hora" no está vacío, concatenar el campo "Fecha" con "Hora". Caso contrario, solo considerar el campo "Fecha".
-  1.2. Convertir la concatenación para registrarlo en "venue_date" como tipo TimeStamp y en  "venue_date_str" como texto en formato año/mes/día Hora:minutos:segundos
+  1.2. Convertir la concatenación para registrarlo en "concert_date" como tipo TimeStamp y en  "concert_date_str" como texto en formato año/mes/día Hora:minutos:segundos
 
-2. Cada línea representa una canción por concierto (venue), por lo cual, se debe leer la primera línea de cada concierto para registrar el venue de esta manera:
+2. Cada línea representa una canción por concierto (concert), por lo cual, se debe leer la primera línea de cada concierto para registrar el venue de esta manera:
 	2.1. En colección concert_types: buscar si el campo de "Tipo de Concierto" existe en concert_type_name. Si no existe, crea un documento en concert_types y obtiene el id.
 	2.2. En colección venue_types: buscar si el campo de "Tipo de Lugar" existe en venue_type_name. Si no existe, crea un documento en venue_types y obtiene el id.
 	2.3. En colección tours: buscar si el campo de "Tour" existe en tour_name, siempre y cuando no esté vacío. Si no existe, crea un documento en tours y obtiene el id.
@@ -96,15 +96,15 @@ Crea un programa en Python para que lea el Excel y realice el registro según la
       -Buscar el campo país "País" en la colección "countries" (por name).
       -Obtener el id de país y filtrar las ciudades encontradas por dicho id (country_id)
   2.5. El orden del ubigeo es ciudad -> estado(opcional) -> país -> continente.
-	2.6. En la colección venues: crea un documento con el campo de "Venue" (venue_name) y los ids obtenidos de concert_types, venue_types, tours y cities.
+	2.6. En la colección concerts: crea un documento con el campo de "Venue" (venue_name) y los ids obtenidos de concert_types, venue_types, tours y cities.
 
-3. Para registrar las canciones tocadas en cada venue en "venue_songs", hacer lo siguiente:
-	Si el campo "Canción" está vacío, no registrar nada en venue_songs.
+3. Para registrar las canciones tocadas en cada concert en "concert_songs", hacer lo siguiente:
+	Si el campo "Canción" está vacío, no registrar nada en concert_songs.
 	Caso contrario:
-		-En guest_artists_venues: buscar el campo "Artista Invitado" en guest_artist_name. Si no existe, crea un documento en guest_artists_venues y obtiene el id.
-		-Partir el campo "Artista Invitado" por "," y buscar, de manera independiente, cada parte (split) en la colección "guest_artists_venues" por el campo "guest_artist_name". Si el guest_artist del venue existe en "guest_artists_venues", obtener el id de referencia y registrarlo en guest_artist_ids.
-		-En venue_songs: crea un documento con el campo de "Canción" en song_name (si está vacío, registrar null), el id de "venues" (paso 1), los ids registrados en guest_artists_venues (si no hay ninguno, se registra una lista vacía) y si el campo "Es Cover?" es "VERDADERO", true, sino, false.
-		-Partir el campo "Canción" por " / " (solo considerar que "/" esté en medio de espacios en blanco) y buscar, de manera independiente, cada parte (split) en la colección "tracks" por el campo "title" sin distinguir mayúsculas ni minúsculas. Si la canción del venue existe en "tracks", obtener el id de referencia y registrarlo en track_ids.
+		-En guest_artists_concerts: buscar el campo "Artista Invitado" en guest_artist_name. Si no existe, crea un documento en guest_artists_concerts y obtiene el id.
+		-Partir el campo "Artista Invitado" por "," y buscar, de manera independiente, cada parte (split) en la colección "guest_artists_concerts" por el campo "guest_artist_name". Si el guest_artist del concert existe en "guest_artists_concerts", obtener el id de referencia y registrarlo en guest_artist_ids.
+		-En concert_songs: crea un documento con el campo de "Canción" en song_name (si está vacío, registrar null), el id de "concerts" (paso 1), los ids registrados en guest_artists_concerts (si no hay ninguno, se registra una lista vacía) y si el campo "Es Cover?" es "VERDADERO", true, sino, false.
+		-Partir el campo "Canción" por " / " (solo considerar que "/" esté en medio de espacios en blanco) y buscar, de manera independiente, cada parte (split) en la colección "tracks" por el campo "title" sin distinguir mayúsculas ni minúsculas. Si la canción del concert existe en "tracks", obtener el id de referencia y registrarlo en track_ids.
       Ejemplo:
         Caso A: "Black Magic Woman / Gypsy Queen" -> Buscar "Black Magic Woman" y luego "Gypsy Queen".
         Caso B: "AC/DC" -> No se parte (porque no hay espacios).
@@ -112,7 +112,7 @@ Crea un programa en Python para que lea el Excel y realice el registro según la
 
 4. Todos los campos de las colecciones descritas al inicio deben existir. Si no se detecta algún valor, establecerlo en null.
 
-5. Se deben usar los ids de las colecciones existentes para referenciar a venues.
+5. Se deben usar los ids de las colecciones existentes para referenciar a concerts.
 
 6. Manejar logs para los siguientes casos:
 	-Si alguno de los campos del Excel que son "obligatorio" están vacíos, indicar en el log con el campo o campos que faltan y no continuar con el registro venue.
@@ -123,8 +123,8 @@ Crea un programa en Python para que lea el Excel y realice el registro según la
 
 9. El programa debe ser idempotente. La llave del Excel es "Fecha", "Venue", "Tipo de Función" y "Ciudad". 
   9.1. Cada vez que lo ejecute, debe registrar lo que no existe.
-  9.2. Para los venues existentes: 
-    -Eliminar los venue_songs existentes y reemplazar por una nueva lista según el Excel.
+  9.2. Para los concerts existentes: 
+    -Eliminar los concert_songs existentes y reemplazar por una nueva lista según el Excel.
     -Actualizar estos campos venue_type_id, show_type_id, show_time, concert_type_id, tour_id, state_id, country_id.
 
 10. Debe haber logs para lo siguiente:
@@ -247,18 +247,18 @@ Cover Song: nombre de la canción cover
 
 El excel tiene casi 47000 filas y no quiero revisar los datos repetidos manualmente.
 Crea un programa en Python que detecte si hay datos inconsistenes considerando lo siguiente:
-	-Cada línea representa una canción (Canción) por concierto (Venue), por lo cual, se debe leer la primera línea de cada concierto para obtener el venue.
-	-La llave de un venue es: Fecha, Venue, Tipo de Concierto, Tipo de Lugar, Tour, Ciudad, Estado y País.
-	-Cada línea dentro de un venue, tiene las canciones tocadas. Por eso, en Excel se repite la llave del venue.
+	-Cada línea representa una canción (Canción) por concierto (Concert), por lo cual, se debe leer la primera línea de cada concierto para obtener el venue.
+	-La llave de un concert es: Fecha, Venue, Tipo de Concierto, Tipo de Lugar, Tour, Ciudad, Estado y País.
+	-Cada línea dentro de un concert, tiene las canciones tocadas. Por eso, en Excel se repite la llave del concert.
 	-Los datos que quiero revisar son los siguientes:
-		A nivel de "Fecha"-"Venue":
-			Columna "Tipo de Concierto": para saber si un mismo venue tiene tipos diferentes.
-			Columna "Tipo de Lugar": para saber si un mismo venue tiene tipos de lugar diferentes.
-			Columna "Tour": para saber si un mismo venue tiene tours diferentes.
-			Columna "Ciudad": para saber si un mismo venue tiene ciudades diferentes.
-			Columna "Estado": para saber si un mismo venue tiene estados diferentes.
-			Columna "País": para saber si un mismo venue tiene países diferentes.
-Muestra un log de aquellos venues en los que no tienen la data correcta según lo anterior.
+		A nivel de "Fecha"-"Concert":
+			Columna "Tipo de Concierto": para saber si un mismo concert tiene tipos diferentes.
+			Columna "Tipo de Lugar": para saber si un mismo concert tiene tipos de lugar diferentes.
+			Columna "Tour": para saber si un mismo concert tiene tours diferentes.
+			Columna "Ciudad": para saber si un mismo concert tiene ciudades diferentes.
+			Columna "Estado": para saber si un mismo concert tiene estados diferentes.
+			Columna "País": para saber si un mismo concert tiene países diferentes.
+Muestra un log de aquellos concerts en los que no tienen la data correcta según lo anterior.
 
 
 	

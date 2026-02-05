@@ -1,4 +1,4 @@
-# python -m scripts.cleanup.reset_venues
+# python -m scripts.cleanup.reset_concerts
 
 import asyncio
 import logging
@@ -8,7 +8,7 @@ from scripts.common.db_utils import db_manager
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger()
 
-async def reset_venues():
+async def reset_concerts():
     try:
         # 1. Conectar a la base de datos
         db = await db_manager.connect()
@@ -16,9 +16,9 @@ async def reset_venues():
 
         # 2. Colecciones a vaciar
         collections_to_clear = [
-            'guest_artists_venues',
-            'venue_songs',
-            'venues'
+            'guest_artists_concerts',
+            'concert_songs',
+            'concerts'
         ]
 
         for coll in collections_to_clear:
@@ -28,8 +28,8 @@ async def reset_venues():
         # 3. Reiniciar secuencias en la colección 'counters'
         # Reseteamos a 0 para que el próximo $inc devuelva 1
         sequences_to_reset = [
-            'venue_id',
-            'guest_artist_venue_id'
+            'concert_id',
+            'guest_artist_concert_id'
         ]
 
         for seq in sequences_to_reset:
@@ -49,4 +49,4 @@ async def reset_venues():
         pass
 
 if __name__ == "__main__":
-    asyncio.run(reset_venues())
+    asyncio.run(reset_concerts())

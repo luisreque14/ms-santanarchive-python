@@ -1,4 +1,4 @@
-# python -m scripts.check_data.check_venue_detect_double_shows
+# python -m scripts.check_data.check_concert_detect_double_shows
 
 import asyncio
 import pandas as pd

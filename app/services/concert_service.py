@@ -1,11 +1,11 @@
 from fastapi import HTTPException, status
 from typing import List, Optional
 from datetime import datetime
-from app.repositories.venue_repository import VenueRepository
-from app.dtos.venue_dto import VenueDto
+from app.repositories.concert_repository import ConcertRepository
+from app.dtos.concert_dto import ConcertDto
 
-class VenueService:
-    def __init__(self, repository: VenueRepository):
+class ConcertService:
+    def __init__(self, repository: ConcertRepository):
         self.repo = repository
 
     async def get_by_filter(
@@ -18,10 +18,10 @@ class VenueService:
         state_id: Optional[int] = None,
         country_id: Optional[int] = None,
         continent_id: Optional[int] = None
-    ) -> List[VenueDto]:
+    ) -> List[ConcertDto]:
         # La validación del rango de 1 año ya está en el repositorio, 
         # pero la capturamos aquí para lanzar la excepción HTTP correcta.
-        venues_db = await self.repo.get_by_filter(
+        concerts_db = await self.repo.get_by_filter(
             start_date=start_date,
             end_date=end_date,
             concert_type_id=concert_type_id,
@@ -33,4 +33,4 @@ class VenueService:
         )
         
         # Mapeo de la lista de diccionarios (snake_case) a DTOs (camelCase)
-        return [VenueDto.model_validate(v) for v in venues_db]
+        return [ConcertDto.model_validate(v) for v in concerts_db]

@@ -1,8 +1,8 @@
-# python -m scripts.check_data.check_venue_consistency
+# python -m scripts.check_data.check_concert_consistency
 import pandas as pd
 import os
 
-def check_venue_consistency(file_path):
+def check_concert_consistency(file_path):
     if not os.path.exists(file_path):
         print(f"❌ Error: No se encontró el archivo en {file_path}")
         return
@@ -57,4 +57,4 @@ def check_venue_consistency(file_path):
 if __name__ == "__main__":
     # Asegúrate de poner la ruta correcta aquí
     FILE_PATH = "D:\Videos\santanarchive\ms-santanarchive-python\scripts\data_sources\Conciertos-Consolidado.xlsx"
-    check_venue_consistency(FILE_PATH)
+    check_concert_consistency(FILE_PATH)
