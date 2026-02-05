@@ -39,7 +39,7 @@ class CityDto(BaseModel):
     cityId: int = Field(..., validation_alias="id", serialization_alias="cityId")
     countryId: int = Field(..., validation_alias="country_id", serialization_alias="countryId")
     stateId: Optional[int] = Field(None, validation_alias="state_id", serialization_alias="stateId")
-    cityCode: str = Field(..., validation_alias="code", serialization_alias="cityCode")
+    cityCode: Optional[str] = Field(..., validation_alias="code", serialization_alias="cityCode")
     cityName: str = Field(..., validation_alias="name", serialization_alias="cityName")
 
     model_config = ConfigDict(

@@ -1,5 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.models.geography import ContinentSchema, CountrySchema, StateSchema, CitySchema
+from typing import Optional
 
 class GeographyRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
@@ -38,3 +39,29 @@ class GeographyRepository:
     async def create_city(self, city_data: dict):
         await self.db.cities.insert_one(city_data)
         return city_data["id"]
+    
+    async def get_cities(self, state_id: Optional[int], country_id: int):
+        query = {"country_id": country_id}
+        
+        if state_id is not None:
+            query["state_id"] = state_id
+
+        return await self.db.cities.find(query, {
+            "_id": 0,
+            "id": 1,
+            "name": 1,
+            "country_id": 1,
+            "state_id": 1,
+            "code": 1
+        }).sort("name", 1).to_list(length=None)
+    
+    async def get_states(self, country_id: int):
+        query = {"country_id": country_id}
+        
+        return await self.db.states.find(query, {
+            "_id": 0,
+            "id": 1,
+            "name": 1,
+            "country_id": 1,
+            "code": 1
+        }).sort("name", 1).to_list(length=None)
