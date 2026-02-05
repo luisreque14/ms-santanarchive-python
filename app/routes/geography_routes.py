@@ -4,7 +4,7 @@ from app.services.geography_service import GeographyService
 from app.dtos.location_dto import CountryDto
 from app.core.dependencies import get_geo_service
 
-router = APIRouter()
+router = APIRouter(prefix="/geography", tags=["Geography"])
 
 @router.get(
     "/countries/", 
