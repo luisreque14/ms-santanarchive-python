@@ -7,21 +7,6 @@ from app.core.dependencies import get_track_service
 router = APIRouter(prefix="/tracks", tags=["Tracks"])
 
 @router.get(
-    "/", 
-    response_model=List[TrackDto],
-    response_model_by_alias=True
-)
-async def get_tracks(
-    album_id: Optional[int] = Query(None), 
-    service: TrackService = Depends(get_track_service)
-):
-    """
-    Obtiene la lista de canciones, opcionalmente filtradas por álbum.
-    Incluye metadatos (tonalidad, instrumental, etc.) en camelCase.
-    """
-    return await service.list_tracks(album_id)
-
-@router.get(
     "/album/{album_id}", 
     response_model=List[TrackDto],
     response_model_by_alias=True

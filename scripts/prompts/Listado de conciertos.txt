@@ -1,0 +1,180 @@
+Crea un pipeline para obtener conciertos (venues) en base a lo siguientes filtros:
+
+-Fecha de inicio (campo venue_date): obligatorio
+-Fecha fin (campo venue_date): obligatorio
+-Tipo de concierto (campo concert_type_id): opcional
+-Tour (campo tour_id): opcional
+-Ciudad (campo city_id): opcional
+-Estado (campo state_id): opcional
+-País (campo country_id): opcional
+-Continente (campo continent_id): opcional
+
+El rango de fecha no debe exceder a más 1 año y si envío la misma fecha en ambos campos debe obtener los conciertos de ese día sin importar la hora.
+
+Debe devolver un listado de venues con estos campos:
+
+-venue_date: en formato Datetime
+-venue_name
+-venue_type_id
+-venue_type_name (venue_type_name de la colección venue_types)
+-show_type_id (show_type_name de la colección show_types)
+-show_time
+-concert_type_id
+-concert_type_name (concert_type_name de la colección concert_types)
+-tour_id
+-tour_name (tour_name de la colección tours)
+-city_id
+-city_name (name de la colección cities)
+-state_id
+-state_name (name de la colección states)
+-country_id
+-country_name (name de la colección countries)
+-continent_id
+-continent_name (name de la colección continents)
+-venue_year
+-song_count
+
+Te paso un ejemplo de cómo trabajo los pipelines actualmente:
+
+from typing import Optional, List
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+class StatisticsRepository:
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self.db = db
+
+    async def get_instrumental_stats(self, match_query: dict, album_id: Optional[int]) -> List[dict]:
+        pipeline = [
+            {"$match": match_query},
+            {"$group": {
+                "_id": "$album_id" if album_id else None,
+                "total_instrumental": {"$sum": {"$cond": ["$metadata.is_instrumental", 1, 0]}},
+                "total_vocal": {"$sum": {"$cond": ["$metadata.is_instrumental", 0, 1]}}
+            }},
+            {"$lookup": {"from": "albums", "localField": "_id", "foreignField": "id", "as": "info"}},
+            {"$unwind": {"path": "$info", "preserveNullAndEmptyArrays": True}},
+            {"$project": {
+                "album_id": {"$ifNull": ["$_id", 0]},
+                "album_name": {
+                    "$cond": [album_id is None, "Full Discography", {"$ifNull": ["$info.title", "Unknown"]}]
+                },
+                "total_instrumental": 1, 
+                "total_vocal": 1, 
+                "_id": 0
+            }}
+        ]
+        return await self.db.tracks.aggregate(pipeline).to_list(1)
+
+Estas son las colecciones:
+
+concert_types:
+{
+  "_id": {
+    "$oid": "6983da82d93e70303f2799a2"
+  },
+  "concert_type_id": 1,
+  "concert_type_name": "Concert"
+}
+
+
+show_types:
+{
+  "_id": {
+    "$oid": "6983da82d93e70303f2799a1"
+  },
+  "show_type_id": 1,
+  "show_type_name": "Unique"
+}
+
+
+venue_types:
+{
+  "_id": {
+    "$oid": "6983da82d93e70303f2799a3"
+  },
+  "venue_type_id": 1,
+  "venue_type_name": "Theater"
+}
+
+
+tours:
+{
+  "_id": {
+    "$oid": "6984b286b3786a63c6561b91"
+  },
+  "tour_id": 1,
+  "tour_name": "Fillmore 1967"
+}
+
+venues:
+{
+  "_id": {
+    "$oid": "6984b505a0981ab0d920ab2f"
+  },
+  "id": 236,
+  "venue_date": {
+    "$date": {
+      "$numberLong": "-80352000000"
+    }
+  },
+  "venue_date_str": "1967/06/16 00:00:00",
+  "venue_name": "Fillmore Auditorium",
+  "venue_type_id": 5,
+  "show_type_id": 1,
+  "show_time": null,
+  "concert_type_id": 1,
+  "tour_id": 1,
+  "city_id": 145,
+  "state_id": 1,
+  "country_id": 1,
+  "continent_id": 1,
+  "venue_year": 1967,
+  "song_count": 4
+}
+
+cities:
+{
+  "_id": {
+    "$oid": "69822bd5bfc3f90607d6b29c"
+  },
+  "id": 1,
+  "name": "San Carlos",
+  "country_id": 235,
+  "state_id": 155,
+  "code": null
+}
+
+
+states:
+{
+  "_id": {
+    "$oid": "69636bdb2cb191a4c26afd6c"
+  },
+  "id": 151,
+  "country_id": 235,
+  "code": "AL",
+  "name": "Alabama"
+}
+
+countries:
+{
+  "_id": {
+    "$oid": "696353fbd5094354f2c9aebd"
+  },
+  "id": 1,
+  "code": "AW",
+  "continent_id": 1,
+  "name": "Aruba"
+}
+
+continents:
+{
+  "_id": {
+    "$oid": "6963429f4a4eb4e01b7e2fe8"
+  },
+  "id": 1,
+  "code": "AM",
+  "name": "America"
+}
+
+

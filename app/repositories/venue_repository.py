@@ -1,0 +1,101 @@
+from typing import Optional, List
+from datetime import datetime, time, timedelta
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+class VenueRepository:
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self.db = db
+
+    async def get_by_filter(
+        self, 
+        start_date: datetime, 
+        end_date: datetime,
+        concert_type_id: Optional[int] = None,
+        tour_id: Optional[int] = None,
+        city_id: Optional[int] = None,
+        state_id: Optional[int] = None,
+        country_id: Optional[int] = None,
+        continent_id: Optional[int] = None
+    ) -> List[dict]:
+        
+        # 1. Validación de rango (máximo 1 año)
+        if end_date - start_date > timedelta(days=366):
+            raise ValueError("The date range cannot exceed 1 year.")
+
+        # 2. Ajuste de fechas para incluir el día completo si son iguales
+        # O simplemente para asegurar que el end_date cubra hasta el último segundo
+        query_start = datetime.combine(start_date.date(), time.min)
+        query_end = datetime.combine(end_date.date(), time.max)
+
+        # 3. Construcción del Match Query dinámico
+        match_query = {
+            "venue_date": {"$gte": query_start, "$lte": query_end}
+        }
+
+        if concert_type_id: match_query["concert_type_id"] = concert_type_id
+        if tour_id: match_query["tour_id"] = tour_id
+        if city_id: match_query["city_id"] = city_id
+        if state_id: match_query["state_id"] = state_id
+        if country_id: match_query["country_id"] = country_id
+        if continent_id: match_query["continent_id"] = continent_id
+
+        pipeline = [
+            {"$match": match_query},
+            # Cruce con tipos de lugar
+            {"$lookup": {"from": "venue_types", "localField": "venue_type_id", "foreignField": "venue_type_id", "as": "v_type"}},
+            {"$unwind": {"path": "$v_type", "preserveNullAndEmptyArrays": True}},
+            
+            # Cruce con tipos de función
+            {"$lookup": {"from": "show_types", "localField": "show_type_id", "foreignField": "show_type_id", "as": "s_type"}},
+            {"$unwind": {"path": "$s_type", "preserveNullAndEmptyArrays": True}},
+            
+            # Cruce con tipos de concierto
+            {"$lookup": {"from": "concert_types", "localField": "concert_type_id", "foreignField": "concert_type_id", "as": "c_type"}},
+            {"$unwind": {"path": "$c_type", "preserveNullAndEmptyArrays": True}},
+            
+            # Cruce con tours
+            {"$lookup": {"from": "tours", "localField": "tour_id", "foreignField": "tour_id", "as": "tour"}},
+            {"$unwind": {"path": "$tour", "preserveNullAndEmptyArrays": True}},
+            
+            # Cruce con geografía
+            {"$lookup": {"from": "cities", "localField": "city_id", "foreignField": "id", "as": "city"}},
+            {"$unwind": {"path": "$city", "preserveNullAndEmptyArrays": True}},
+            
+            {"$lookup": {"from": "states", "localField": "state_id", "foreignField": "id", "as": "state"}},
+            {"$unwind": {"path": "$state", "preserveNullAndEmptyArrays": True}},
+            
+            {"$lookup": {"from": "countries", "localField": "country_id", "foreignField": "id", "as": "country"}},
+            {"$unwind": {"path": "$country", "preserveNullAndEmptyArrays": True}},
+            
+            {"$lookup": {"from": "continents", "localField": "continent_id", "foreignField": "id", "as": "continent"}},
+            {"$unwind": {"path": "$continent", "preserveNullAndEmptyArrays": True}},
+
+            # Proyección final
+            {"$project": {
+                "_id": 0,
+                "venue_date": 1,
+                "venue_name": 1,
+                "venue_type_id": 1,
+                "venue_type_name": "$v_type.venue_type_name",
+                "show_type_id": 1,
+                "show_type_name": "$s_type.show_type_name",
+                "show_time": 1,
+                "concert_type_id": 1,
+                "concert_type_name": "$c_type.concert_type_name",
+                "tour_id": 1,
+                "tour_name": "$tour.tour_name",
+                "city_id": 1,
+                "city_name": "$city.name",
+                "state_id": 1,
+                "state_name": "$state.name",
+                "country_id": 1,
+                "country_name": "$country.name",
+                "continent_id": 1,
+                "continent_name": "$continent.name",
+                "venue_year": 1,
+                "song_count": 1
+            }},
+            {"$sort": {"venue_date": 1}} # Ordenado cronológicamente
+        ]
+
+        return await self.db.venues.aggregate(pipeline).to_list(length=None)

@@ -1,0 +1,179 @@
+concert_types:
+{
+  "_id": {
+    "$oid": "6983da82d93e70303f2799a2"
+  },
+  "concert_type_id": 1,
+  "concert_type_name": "Concert"
+}
+
+
+show_types:
+{
+  "_id": {
+    "$oid": "6983da82d93e70303f2799a1"
+  },
+  "show_type_id": 1,
+  "show_type_name": "Unique"
+}
+
+
+venue_types:
+{
+  "_id": {
+    "$oid": "6983da82d93e70303f2799a3"
+  },
+  "venue_type_id": 1,
+  "venue_type_name": "Theater"
+}
+
+
+tours:
+{
+  "_id": {
+    "$oid": "6984b286b3786a63c6561b91"
+  },
+  "tour_id": 1,
+  "tour_name": "Fillmore 1967"
+}
+
+venues:
+{
+  "_id": {
+    "$oid": "6984b505a0981ab0d920ab2f"
+  },
+  "id": 236,
+  "venue_date": {
+    "$date": {
+      "$numberLong": "-80352000000"
+    }
+  },
+  "venue_date_str": "1967/06/16 00:00:00",
+  "venue_name": "Fillmore Auditorium",
+  "venue_type_id": 5,
+  "show_type_id": 1,
+  "show_time": null,
+  "concert_type_id": 1,
+  "tour_id": 1,
+  "city_id": 145,
+  "state_id": 1,
+  "country_id": 1,
+  "continent_id": 1,
+  "venue_year": 1967,
+  "song_count": 4
+}
+
+venue_songs:
+{
+  "_id": {
+    "$oid": "6984a9624dd1d9ddbbd08e5d"
+  },
+  "venue_id": 10,
+  "song_number": 1,
+  "song_name": "Chim Chim Cher-ee",
+  "guest_artist_ids": [],
+  "track_ids": [],
+  "is_cover": false
+}
+
+
+guest_artists_venues:
+{
+  "_id": {
+    "$oid": "6984b506a0981ab0d920ab32"
+  },
+  "guest_artist_venue_id": 8,
+  "guest_artist_name": "Jimi Hendrix"
+}
+
+cities:
+{
+  "_id": {
+    "$oid": "69822bd5bfc3f90607d6b29c"
+  },
+  "id": 1,
+  "name": "San Carlos",
+  "country_id": 235,
+  "state_id": 155,
+  "code": null
+}
+
+
+states:
+{
+  "_id": {
+    "$oid": "69636bdb2cb191a4c26afd6c"
+  },
+  "id": 151,
+  "country_id": 235,
+  "code": "AL",
+  "name": "Alabama"
+}
+
+countries:
+{
+  "_id": {
+    "$oid": "696353fbd5094354f2c9aebd"
+  },
+  "id": 1,
+  "code": "AW",
+  "continent_id": 1,
+  "name": "Aruba"
+}
+
+continents:
+{
+  "_id": {
+    "$oid": "6963429f4a4eb4e01b7e2fe8"
+  },
+  "id": 1,
+  "code": "AM",
+  "name": "America"
+}
+
+tracks:
+{
+  "_id": {
+    "$oid": "69640b8b9553d69017fb8e29"
+  },
+  "album_id": 1,
+  "title": "Waiting",
+  "composer_ids": [
+    1
+  ],
+  "duration": "00:04:07",
+  "genre_ids": [
+    49,
+    38
+  ],
+  "metadata": {
+    "key": "Gm",
+    "is_instrumental": true,
+    "is_live": false,
+    "is_love_song": false
+  },
+  "side": "A",
+  "track_number": 1,
+  "guest_artist_ids": [],
+  "guest_lead_vocal_ids": [],
+  "lead_vocal_ids": [],
+  "duration_seconds": 247,
+  "id": 1
+}
+
+albums:
+{
+  "_id": {
+    "$oid": "69640b8cda27acaab8e03a90"
+  },
+  "id": 1,
+  "title": "Santana",
+  "release_year": 1969,
+  "cover": "santana-santana.jpg",
+  "release_date": {
+    "$date": {
+      "$numberLong": "-13219200000"
+    }
+  },
+  "is_live": false
+}

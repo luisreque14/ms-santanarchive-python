@@ -19,6 +19,8 @@ from app.services.performance_service import PerformanceService
 from app.repositories.track_repository import TrackRepository
 from app.services.track_service import TrackService
 from app.repositories.executive_summary_repository import ExecutiveSummaryRepository
+from app.repositories.venue_repository import VenueRepository
+from app.services.venue_service import VenueService
 
 def get_stats_service(db=Depends(get_db)):
     repo = StatisticsRepository(db)
@@ -51,3 +53,6 @@ def get_performance_service(db=Depends(get_db)):
 
 def get_track_service(db=Depends(get_db)):
     return TrackService(TrackRepository(db))
+
+def get_venue_service(db=Depends(get_db)):
+    return VenueService(VenueRepository(db))
