@@ -1,212 +1,213 @@
-#Este script lee el archivo Conciertos-Consolidado y registra (insert/update) los conciertos y canciones de conciertos.
+#Este script lee el archivo Conciertos-Consolidado y registra (insert/update) los conciertos. Las canciones de conciertos se eliminan y se vuelven a crear según el Excel.
 #También, si no existe la ciudad, estado o país, lo registra.
+#Ojo: la llave del venue es fecha-hora, nombre del venue, show_type y ciudad
 
 # python -m scripts.maintenance.load_venues
-
-import asyncio
 import pandas as pd
+import asyncio
+import logging
 from datetime import datetime
 from scripts.common.db_utils import db_manager
-from pathlib import Path
-from pymongo import UpdateOne
 
-class SantanaTourMigrator:
+# Configuración de Logs (Punto 10)
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger()
+
+class VenuesLoader:
     def __init__(self):
-        self.caches = {}
-        self.counters = {}
+        self.db = None
+        self.cache = {}
 
-    async def _initialize_cache(self, db):
-        print("📥 Cargando catálogos en memoria (Case-Insensitive)...")
-        # Definimos las colecciones y sus campos clave
-        collections_info = [
-            ("concert_types", "concert_type_name", "concert_type_id"),
-            ("venue_types", "venue_type_name", "venue_type_id"),
-            ("tours", "tour_name", "tour_id"),
-            ("continents", "name", "id"),
-            ("countries", "name", "id"),
-            ("states", "code", "id"),
-            ("cities", "name", "id"),
-            ("guest_artists_venues", "guest_artist_name", "guest_artist_venue_id"),
-            ("tracks", "title", "id")
+    async def initialize(self):
+        """Inicializa conexión y carga caché en memoria (Punto 7)"""
+        self.db = await db_manager.connect()
+        collections = [
+            'show_types', 'concert_types', 'venue_types', 'tours', 
+            'continents', 'countries', 'states', 'cities', 
+            'guest_artists_venues', 'tracks', 'venues'
         ]
+        
+        for coll in collections:
+            cursor = self.db[coll].find({})
+            data = await cursor.to_list(length=None)
+            
+            if coll == 'tracks':
+                self.cache[coll] = {str(d.get('title')).strip().lower(): d.get('id') for d in data}
+            elif coll == 'venues':
+                # Llave: (fecha_str, venue_name_lower, show_type_id, city_id)
+                self.cache[coll] = {
+                    (d.get('venue_date_str'), d.get('venue_name').lower(), d.get('show_type_id'), d.get('city_id')): d.get('id') 
+                    for d in data
+                }
+            elif coll == 'cities':
+                self.cache[coll] = data
+            else:
+                name_field = 'name' if coll in ['continents', 'countries', 'states'] else f"{coll[:-1]}_name"
+                if coll == 'guest_artists_venues': name_field = 'guest_artist_name'
+                self.cache[coll] = {str(d.get(name_field)).strip().lower(): d.get('id') or d.get(f"{coll[:-1]}_id") for d in data}
 
-        for coll, name_field, id_field in collections_info:
-            data = await db[coll].find().to_list(length=None)
-            # Cache: Llave en minúsculas para comparaciones del punto 7
-            self.caches[coll] = {str(d[name_field]).strip().lower(): d[id_field] for d in data if name_field in d}
-            # Contador: Para nuevos IDs correlativos
-            self.counters[id_field] = max([int(d[id_field]) for d in data if id_field in d] + [0])
+    async def get_next_id(self, counter_name):
+        """Usa la colección counters (Punto 11)"""
+        counter = await self.db.counters.find_one_and_update(
+            {'_id': counter_name},
+            {'$inc': {'sequence_value': 1}},
+            upsert=True,
+            return_document=True
+        )
+        return counter['sequence_value']
 
-        # Cache especial para Venues (Idempotencia: Fecha_Venue_CiudadID)
-        venues_data = await db.venues.find().to_list(length=None)
-        self.caches["venues"] = {
-            f"{d['venue_date']}_{str(d['venue_name']).lower()}_{d['city_id']}": True 
-            for d in venues_data
-        }
+    def normalize(self, text):
+        """Aplica trim y minúsculas (Punto 8)"""
+        return str(text).strip().lower() if pd.notna(text) else ""
 
-    def get_next_id(self, counter_name):
-        self.counters[counter_name] += 1
-        return self.counters[counter_name]
-
-    async def get_or_create(self, db, coll, cache_name, search_val, id_field, name_field, extra_data=None):
-        if not search_val or pd.isna(search_val): return None
-        val_clean = str(search_val).strip()
-        val_key = val_clean.lower()
-
-        if val_key in self.caches[cache_name]:
-            return self.caches[cache_name][val_key]
-
-        new_id = self.get_next_id(id_field)
-        doc = {id_field: new_id, name_field: val_clean}
+    async def get_or_create_master(self, coll_name, name_val, id_field, name_field, extra_data=None):
+        norm_name = self.normalize(name_val)
+        if not norm_name: return None
+        
+        if norm_name in self.cache[coll_name]:
+            return self.cache[coll_name][norm_name]
+        
+        new_id = await self.get_next_id(id_field)
+        doc = {id_field: new_id, name_field: str(name_val).strip()}
         if extra_data: doc.update(extra_data)
         
-        await db[coll].insert_one(doc)
-        self.caches[cache_name][val_key] = new_id
-        print(f"✨ Nuevo registro en {coll}: {val_clean} (ID: {new_id})")
+        await self.db[coll_name].insert_one(doc)
+        self.cache[coll_name][norm_name] = new_id
         return new_id
 
-    async def process_ubigeo(self, db, row):
-        # 1. Continente (Asumimos que ya existen los básicos)
-        cont_key = str(row['Continente']).strip().lower()
-        cont_id = self.caches['continents'].get(cont_key)
-
-        # 2. País
-        country_name = str(row['País']).strip()
-        country_id = self.caches['countries'].get(country_name.lower())
-        if not country_id:
-            country_id = await self.get_or_create(db, "countries", "countries", country_name, "id", "name", {
-                "continent_id": cont_id, "code": None
-            })
-
-        # 3. Estado (Solo si hay código)
+    async def process_geo(self, row):
+        """Jerarquía Geográfica (Punto 2.4)"""
+        cont_id = await self.get_or_create_master('continents', row['Continente'], 'continent_id', 'name')
+        country_id = await self.get_or_create_master('countries', row['País'], 'country_id', 'name', {'continent_id': cont_id})
+        
         state_id = None
-        state_code = str(row['Código Estado']).strip() if row['Código Estado'] else None
-        if state_code:
-            # Según punto 1.4.2: buscar por código
-            state_id = self.caches['states'].get(state_code.lower())
-            if not state_id:
-                state_id = await self.get_or_create(db, "states", "states", state_code, "id", "code", {
-                    "name": row['Nombre Estado'], "country_id": country_id
-                })
-
-        # 4. Ciudad
-        city_name = str(row['Ciudad']).strip()
-        city_id = self.caches['cities'].get(city_name.lower())
-        if not city_id:
-            city_id = await self.get_or_create(db, "cities", "cities", city_name, "id", "name", {
-                "state_id": state_id, "country_id": country_id, "code": None
-            })
-        return city_id
-
-async def run_migration(filename: str):
-    current_dir = Path(__file__).parent
-    file_path = current_dir.parent / filename
-    
-    migrator = SantanaTourMigrator()
-    db = await db_manager.connect()
-    await migrator._initialize_cache(db)
-
-    print(f"📊 Leyendo {file_path}...")
-    df = pd.read_excel(file_path)
-    df = df.where(pd.notnull(df), None)
-
-    # Agrupar por la llave de concierto para procesar el "Paso 1" una sola vez por show
-    grouped = df.groupby(['Fecha', 'Venue', 'Ciudad'])
-    song_ops = []
-
-    for (fecha, venue_name, ciudad), group in grouped:
-        first = group.iloc[0]
+        if pd.notna(row['Código Estado']):
+            state_id = await self.get_or_create_master('states', row['Nombre Estado'], 'state_id', 'name', 
+                                                     {'code': row['Código Estado'], 'country_id': country_id})
         
-        # Validaciones obligatorias (Paso 5)
-        required = ["Fecha", "Venue", "Tipo de Concierto", "Tipo de Lugar", "País", "Continente"]
-        missing = [f for f in required if not first[f]]
-        if missing:
-            print(f"❌ SALTADO: Faltan campos obligatorios {missing} en {fecha} | {venue_name}")
-            continue
-
-        # Convertir fecha
-        dt_fecha = pd.to_datetime(fecha, dayfirst=True)
-
-        # 1. Ubigeo y Referencias
-        city_id = await migrator.process_ubigeo(db, first)
-        ct_id = await migrator.get_or_create(db, "concert_types", "concert_types", first["Tipo de Concierto"], "concert_type_id", "concert_type_name")
-        vt_id = await migrator.get_or_create(db, "venue_types", "venue_types", first["Tipo de Lugar"], "venue_type_id", "venue_type_name")
-        t_id = await migrator.get_or_create(db, "tours", "tours", first["Tour"], "tour_id", "tour_name") if first["Tour"] else None
-
-        # 2. Registro de Venue (Paso 1.6 e Idempotencia Paso 8)
-        venue_key = f"{dt_fecha}_{str(venue_name).lower()}_{city_id}"
+        city_name = self.normalize(row['Ciudad'])
+        matched_cities = [c for c in self.cache['cities'] if self.normalize(c['name']) == city_name and c.get('country_id') == country_id]
         
-        # En MongoDB, si no tienes un campo 'id' correlativo manual para venues, 
-        # lo buscamos por el filtro de la llave compuesta.
-        existing_venue = await db.venues.find_one({
-            "venue_date": dt_fecha, 
-            "venue_name": str(venue_name).strip(), 
-            "city_id": city_id
-        })
-
-        if not existing_venue:
-            # Calculamos song_count basado en las canciones no vacías del grupo
-            songs_in_group = group[group['Canción'].notnull()]
-            venue_doc = {
-                "venue_date": dt_fecha,
-                "venue_year": int(dt_fecha.year),
-                "venue_name": str(venue_name).strip(),
-                "venue_type_id": vt_id,
-                "concert_type_id": ct_id,
-                "tour_id": t_id,
-                "city_id": city_id,
-                "song_count": len(songs_in_group)
-            }
-            res = await db.venues.insert_one(venue_doc)
-            venue_oid = res.inserted_id
-            print(f"🏟️ Venue Registrado: {venue_name} ({dt_fecha.year})")
+        if matched_cities:
+            return matched_cities[0]['id']
         else:
-            venue_oid = existing_venue["_id"]
+            city_id = await self.get_next_id('city_id')
+            new_city = {'id': city_id, 'name': str(row['Ciudad']).strip(), 'country_id': country_id, 'state_id': state_id, 'code': None}
+            await self.db.cities.insert_one(new_city)
+            self.cache['cities'].append(new_city)
+            return city_id
 
-        # 3. Registro de Canciones (Paso 2)
-        for _, s_row in group.iterrows():
-            if not s_row["Canción"]: continue
+    async def run(self, file_path):
+        await self.initialize()
+        df = pd.read_excel(file_path)
+        # Agrupar por la llave de negocio del Excel (Punto 9)
+        grouped = df.groupby(['Fecha', 'Venue', 'Tipo de Función', 'Ciudad'], sort=False)
 
-            # Artistas invitados (Split por coma)
-            g_ids = []
-            if s_row["Artista Invitado"]:
-                names = [n.strip() for n in str(s_row["Artista Invitado"]).split(",")]
-                for n in names:
-                    gid = await migrator.get_or_create(db, "guest_artists_venues", "guest_artists_venues", n, "guest_artist_venue_id", "guest_artist_name")
-                    g_ids.append(gid)
+        for name, group in grouped:
+            first_row = group.iloc[0]
+            
+            # Validación de obligatorios (Punto 6)
+            required = ['Fecha', 'Venue', 'Tipo de Función', 'Tipo de Concierto', 'Tipo de Lugar', 'Ciudad', 'País', 'Continente']
+            if any(pd.isna(first_row[f]) for f in required):
+                logger.error(f"⚠️ Campos obligatorios incompletos en: {name}")
+                continue
 
-            # Búsqueda en Tracks (Split por /)
-            track_ids = []
-            song_parts = [p.strip().lower() for p in str(s_row["Canción"]).split("/")]
-            for part in song_parts:
-                tid = migrator.caches["tracks"].get(part)
-                if tid: track_ids.append(tid)
+            # Validación de Fecha (Punto 1)
+            raw_date = str(first_row['Fecha']).split(' ')[0] # Asegurar solo fecha
+            show_time = str(first_row['Hora Función']).strip() if pd.notna(first_row['Hora Función']) else ""
+            date_dt = None
+            venue_date_str = ""
 
-            song_doc = {
-                "venue_id": venue_oid, # Usamos el _id de Mongo para la relación interna
-                "song_name": str(s_row["Canción"]).strip(),
-                "guest_artist_ids": g_ids,
-                "track_ids": track_ids,
-                "is_cover": True if str(s_row["Es Cover?"]).upper() == "SI" else False
-            }
+            try:
+                for fmt in ['%Y/%m/%d', '%d/%m/%Y', '%Y-%m-%d']:
+                    try: 
+                        date_dt = datetime.strptime(raw_date, fmt)
+                        break
+                    except: continue
+                if not date_dt: raise ValueError
+                
+                # Formateo de fecha y hora
+                if show_time:
+                    try:
+                        # Soporta formatos como HH:MM o HH:MM:SS
+                        time_parts = show_time.split(':')
+                        date_dt = date_dt.replace(
+                            hour=int(time_parts[0]), 
+                            minute=int(time_parts[1]),
+                            second=int(time_parts[2]) if len(time_parts) > 2 else 0
+                        )
+                    except:
+                        logger.warning(f"⚠️ Hora mal formateada '{show_time}', se usará 00:00:00")
+                
+                venue_date_str = date_dt.strftime('%Y/%m/%d %H:%M:%S')
+            except:
+                logger.error(f"⚠️ Fecha incorrecta: {raw_date}")
+                continue
 
-            # UpdateOne con upsert para evitar duplicar canciones si se re-ejecuta el script
-            song_ops.append(UpdateOne(
-                {"venue_id": venue_oid, "song_name": song_doc["song_name"]},
-                {"$set": song_doc},
-                upsert=True
-            ))
+            # Obtener IDs de Maestros
+            st_id = await self.get_or_create_master('show_types', first_row['Tipo de Función'], 'show_type_id', 'show_type_name')
+            ct_id = await self.get_or_create_master('concert_types', first_row['Tipo de Concierto'], 'concert_type_id', 'concert_type_name')
+            vt_id = await self.get_or_create_master('venue_types', first_row['Tipo de Lugar'], 'venue_type_id', 'venue_type_name')
+            t_id = await self.get_or_create_master('tours', first_row['Tour'], 'tour_id', 'tour_name') if pd.notna(first_row['Tour']) else None
+            city_id = await self.process_geo(first_row)
 
-        # Bulk write cada 500 canciones para optimizar red
-        if len(song_ops) >= 500:
-            await db.venue_songs.bulk_write(song_ops)
-            song_ops = []
+            # Idempotencia de Venue (Punto 9)
+            venue_key = (date_dt.strftime('%Y/%m/%d'), self.normalize(first_row['Venue']), st_id, city_id)
+            venue_id = self.cache['venues'].get(venue_key)
+            
+            if venue_id:
+                logger.info(f"✅ Actualizando: {venue_date_str} - {first_row['Venue']}")
+                await self.db.venue_songs.delete_many({'venue_id': venue_id})
+            else:
+                venue_id = await self.get_next_id('venue_id')
+                logger.info(f"🆕 Nuevo: {venue_date_str} - {first_row['Venue']}")
+                venue_doc = {
+                    'id': venue_id, 
+                    'venue_date': date_dt, 
+                    'venue_name': str(first_row['Venue']).strip(), 
+                    'venue_type_id': vt_id,
+                    'show_type_id': st_id, 
+                    'show_time': show_time or None, 
+                    'concert_type_id': ct_id,
+                    'tour_id': t_id, 
+                    'city_id': city_id, 
+                    'venue_year': date_dt.year, 
+                    'song_count': 0
+                }
+                await self.db.venues.insert_one(venue_doc)
+                self.cache['venues'][venue_key] = venue_id
 
-    if song_ops:
-        await db.venue_songs.bulk_write(song_ops)
+            # Procesar Canciones (Punto 3)
+            songs_to_insert = []
+            song_counter = 1
+            for _, s_row in group.iterrows():
+                if pd.isna(s_row['Canción']): continue
+                
+                # Guest Artists
+                guest_ids = []
+                if pd.notna(s_row['Artista Invitado']):
+                    for art in str(s_row['Artista Invitado']).split(','):
+                        g_id = await self.get_or_create_master('guest_artists_venues', art.strip(), 'guest_artist_venue_id', 'guest_artist_name')
+                        guest_ids.append(g_id)
 
-    print("🏁 Migración finalizada.")
-    await db_manager.close()
+                # Split de canciones " / " (Punto 3)
+                sub_songs = [s.strip() for s in str(s_row['Canción']).split(' / ')]
+                for sub_s in sub_songs:
+                    t_id_ref = self.cache['tracks'].get(self.normalize(sub_s))
+                    songs_to_insert.append({
+                        'venue_id': venue_id, 'song_number': song_counter, 'song_name': sub_s,
+                        'guest_artist_ids': guest_ids, 'track_ids': [t_id_ref] if t_id_ref else [],
+                        'is_cover': str(s_row['Es Cover?']).strip().upper() == 'VERDADERO'
+                    })
+                    song_counter += 1
+
+            if songs_to_insert:
+                await self.db.venue_songs.insert_many(songs_to_insert)
+                await self.db.venues.update_one({'id': venue_id}, {'$set': {'song_count': len(songs_to_insert)}})
+
+        logger.info("🏁 Proceso terminado")
 
 if __name__ == "__main__":
-    asyncio.run(run_migration("data_sources/data_concerts/Conciertos-Consolidado.xlsx"))
+    loader = VenuesLoader()
+    FILE_PATH = r"D:\Videos\santanarchive\ms-santanarchive-python\scripts\data_sources\_test_Conciertos-Consolidado.xlsx"
+    asyncio.run(loader.run(FILE_PATH))

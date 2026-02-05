@@ -31,17 +31,31 @@ def format_cover_name(album_name):
     name_processed = album_name.lower().replace(" ", "-")
     return f"santana-{name_processed}.jpg"
 
+async def get_next_sequence_value(db, counter_id):
+    """Obtiene el siguiente ID atómico de la colección counters."""
+    counter = await db.counters.find_one_and_update(
+        {"_id": counter_id},
+        {"$inc": {"sequence_value": 1}},
+        upsert=True,
+        return_document=True
+    )
+    return int(counter["sequence_value"])
+
 async def preload_caches(db):
     """Carga TODO de una sola vez para evitar find_one durante el bucle."""
     print("⏳ Sincronizando maestros en memoria (Zero-DB-Query Mode)...")
     
     # Maestros estándar
-    for coll in ["genres", "composers", "guest_artists", "albums"]:
-        field = "title" if coll == "albums" else ("name" if coll == "genres" else "full_name")
+    for coll in ["genres", "composers", "guest_artists", "albums", "tracks"]:
+        field = "title" if coll in ["albums", "tracks"] else ("name" if coll == "genres" else "full_name")
         cursor = db[coll].find({}, {"id": 1, field: 1})
         async for doc in cursor:
             if doc.get(field):
-                cache[coll][doc[field].lower().strip()] = int(doc["id"])
+                key = f"{doc[field].lower().strip()}"
+                # Para tracks, la llave debe ser (titulo + album_id) para ser única
+                if coll == "tracks":
+                    key = f"{key}_{doc.get('album_id')}"
+                cache[coll][key] = int(doc["id"])
     
     # Músicos (Especial: sin full_name)
     cursor = db.musicians.find({}, {"id": 1, "first_name": 1, "last_name": 1})
@@ -141,7 +155,17 @@ async def run_import():
             vp_ids, vp_logs = await process_list_with_logs(db, "musicians", "N/A", row.get("Cantantes principales"), "Lead")
 
             # 3. Track (Sincronización)
+            track_key = f"{song_title.lower().strip()}_{curr_alb_id}"
+            
+            if track_key in cache["tracks"]:
+                curr_track_id = cache["tracks"][track_key]
+            else:
+                # Si es nuevo, pedimos un ID al contador de tracks
+                curr_track_id = await get_next_sequence_value(db, "track_id")
+                cache["tracks"][track_key] = curr_track_id
+            
             track_data = {
+                "id": curr_track_id,
                 "album_id": curr_alb_id, "title": song_title, "composer_ids": c_ids,
                 "duration": clean_str(row.get("Duración")), "genre_ids": g_ids,
                 "duration_seconds": int(row.get("Duración en Segundos")) if pd.notna(row.get("Duración en Segundos")) else 0,

@@ -1,7 +1,9 @@
-Tengo un excel que registra les fechas de concierto y las canciones tocadas en cada concierto. Estas son las columnas:
+Tengo un excel que registra las fechas de concierto y las canciones tocadas en cada concierto. Estas son las columnas:
 
-Fecha: fecha del concierto en formato día/mes/año (obligatorio)
+Fecha: fecha del concierto en formato (año/mes/día) (obligatorio)
 Venue: lugar del concierto (obligatorio)
+Tipo de Función: Early, Late o Unique  (obligatorio)
+Hora Función: hora de la función (opcional)
 Tipo de Concierto: tipo de concierto (obligatorio)
 Tipo de Lugar: tipo de lugar (obligatorio)
 Tour: nombre del tour (puede estar vacío)
@@ -10,12 +12,16 @@ Código Estado: código de estado de la ciudad (solo si es United States y Canad
 Nombre Estado: nombre del estado de la ciudad (solo si es United States y Canada)
 País: país (obligatorio)
 Continente: continente (obligatorio)
-Canción: nombre de la canción.
-Artista Invitado: nombre del artista invitado en la canción. Pueden ser varios artistas y, en ese caso, están separados por ","
-Es Cover?: "SI": si es un conver, caso contrario "NO"
-Cover Song: nombre de la canción cover
+Canción: nombre de la canción (opcional)
+Artista Invitado: nombre del artista invitado en la canción. Pueden ser varios artistas y, en ese caso, están separados por "," (opcional)
+Es Cover?: "VERDADERO": si es un conver, caso contrario "FALSE" (obligatorio)
+Cover Song: nombre de la canción cover (opcional)
 
 La estructura que quiero crear en MongoDB (Atlas) es la siguiente:
+
+Colección "show_types":
+-show_type_id: correlativo. Tipo Int, Obligatorio.
+-show_type_name: columna "Tipo de Función". Tipo String, Obligatorio.
 
 Colección "concert_types":
 -concert_type_id: correlativo. Tipo Int, Obligatorio.
@@ -30,9 +36,13 @@ Colección "tours":
 -tour_name: columna "Tour". Tipo String, Obligatorio.
 
 Colección "venues":
--venue_date: columna "Fecha". Tipo Date, Obligatorio.
+-id: correlativo numérico. Usar la colección "counters" para crear una secuencia venue_id (en caso no exista).
+-venue_date: columna "Fecha" y "Hora Función". Tipo Timestamp, Obligatorio.
+-venue_date_str: columna "Fecha". Tipo string (será la fecha en formato año/mes/día), Obligatorio.
 -venue_name: columna "Venue". Tipo String, Obligatorio.
 -venue_type_id: referencia a venue_type_id de "venue_types". Tipo Int, Obligatorio.
+-show_type_id: referencia a show_type_id de "show_types". Tipo Int, Obligatorio.
+-show_time: columna "Hora Función". Tipo string, opcional.
 -concert_type_id: referencia a concert_type_id de "concert_types". Tipo Int, Obligatorio.
 -tour_id: referencia a tour_id de "tours". Tipo Int, Opcional.
 -city_id: referencia a city_id de "cities". Tipo Int, Obligatorio.
@@ -45,6 +55,7 @@ Coleccion "guest_artists_venues"
 
 Colección "venue_songs":
 -venue_id: id de venue. Tipo Int, Obligatorio.
+-song_number: correlativo por venue_id. Empieza en 1 hasta el N, según la cantidad de canciones dentro de un venue_id. Tipo Int, Obligatorio
 -song_name: columna "Canción". Tipo String, Obligatorio.
 -guest_artist_ids: lista con ids de referencia a guest_artist_venue_id de "guest_artists_venues". Opcional pero el atributo debe existir con una lista vacía de tipo Int.
 -track_ids: lista con ids de referencia a id de "tracks". Opcional pero el atributo debe existir con una lista vacía de tipo Int.
@@ -53,45 +64,88 @@ Colección "venue_songs":
 
 Crea un programa en Python para que lea el Excel y realice el registro según las siguientes instrucciones:
 
-1. Cada línea representa una canción por concierto (venue), por lo cual, se debe leer la primera línea de cada concierto para registrar el venue de esta manera:
-	1.1. En colección concert_types: buscar si el campo de "Tipo de Concierto" existe en concert_type_name. Si no existe, crea un documento en concert_types y obtiene el id.
-	1.2. En colección venue_types: buscar si el campo de "Tipo de Lugar" existe en venue_type_name. Si no existe, crea un documento en venue_types y obtiene el id.
-	1.3. En colección tours: buscar si el campo de "Tour" existe en tour_name, siempre y cuando no esté vacío. Si no existe, crea un documento en tours y obtiene el id.
-	1.4. En colección cities: buscar si el campo de "Ciudad" existe en name. Si no existe, verificar lo siguiente:
-		1.4.1. Si el campo de "Código de Estado" está vacío, verificar lo siguiente:
+1. La fecha puede estar en formato año/mes/día o día/mes/año. Si no es así, indicar en un log y continuar con la siguiente fila del Excel.
+  1.1. Si el campo "Hora" no está vacío, concatenar el campo "Fecha" con "Hora". Caso contrario, solo considerar el campo "Fecha".
+  1.2. Convertir la concatenación para registrarlo en "venue_date" como tipo TimeStamp y en  "venue_date_str" como texto en formato año/mes/día Hora:minutos:segundos
+
+2. Cada línea representa una canción por concierto (venue), por lo cual, se debe leer la primera línea de cada concierto para registrar el venue de esta manera:
+	2.1. En colección concert_types: buscar si el campo de "Tipo de Concierto" existe en concert_type_name. Si no existe, crea un documento en concert_types y obtiene el id.
+	2.2. En colección venue_types: buscar si el campo de "Tipo de Lugar" existe en venue_type_name. Si no existe, crea un documento en venue_types y obtiene el id.
+	2.3. En colección tours: buscar si el campo de "Tour" existe en tour_name, siempre y cuando no esté vacío. Si no existe, crea un documento en tours y obtiene el id.
+	2.4. En colección cities: buscar si el campo de "Ciudad" existe en name. Si no existe, verificar lo siguiente:
+		2.4.1. Si el campo de "Código de Estado" está vacío, verificar lo siguiente:
 			-Si el campo de "País" existe en la colección "countries" (por name), obtiene el id de "countries". Si no existe, verificar lo siguiente:
 				-Buscar el campo "Continente" en la colección "continents" (por name), obtiene el id de "continents".
 				-Registra el nuevo country ("País" en "name", null en "code" y el id de continent obtenido en "continent_id") y devuelve el id.
+        -El id del country se obtiene de la colección counters id: "country_id", campo sequence_value
 				-Registra el nuevo city con el null en "state_id", el id de country en "country_id", null en "code" y "Ciudad" en "name".
-		1.4.2. Si el campo de "Código Estado" no está vacío, busca en la colección "states" (por code) y por "País" (en countries, campo "name"), si existe, obtiene el id. 
+        -El id del city se obtiene de la colección counters id: "city_id", campo sequence_value
+		2.4.2. Si el campo de "Código Estado" no está vacío, busca en la colección "states" (por code) y por "País" (en countries, campo "name"), si existe, obtiene el id. 
 			-Si no existe, verificar si campo de "País" existe en la colección "countries" (por name), obtiene el id de "countries". Si no existe, verificar lo siguiente:
 				-Buscar el campo "Continente" en la colección "continents" (por name), obtiene el id de "continents".
 				-Registra el nuevo country ("País" en "name", null en "code" y el id de continent obtenido en "continent_id") y devuelve el id.
+        -El id del country se obtiene de la colección counters id: "country_id", campo sequence_value
 				-Registra el nuevo state ("Código Estado" en "code", "Nombre Estado" en "name" y el id de country obtenido en "country_id") y devuelve el id.
+        -El id del state se obtiene de la colección counters id: "state_id", campo sequence_value
 				-Registra el nuevo city con el id de state en "state_id", el id de country en "country_id", null en "code" y "Ciudad" en "name".
-	1.5. El orden del ubigeo es ciudad -> estado(opcional) -> país -> continente.
-	1.6. En la colección venues: crea un documento con el campo de "Venue" (venue_name) y los ids obtenidos de concert_types, venue_types, tours y cities.
+        -El id del city se obtiene de la colección counters id: "city_id", campo sequence_value
+    2.4.3. Pueden haber ciudades con el mismo nombre pero con diferente país en la BD, por lo tanto, en caso de encontrar más de una ciudad, se debe hacer lo siguiente:
+      -Buscar el campo país "País" en la colección "countries" (por name).
+      -Obtener el id de país y filtrar las ciudades encontradas por dicho id (country_id)
+  2.5. El orden del ubigeo es ciudad -> estado(opcional) -> país -> continente.
+	2.6. En la colección venues: crea un documento con el campo de "Venue" (venue_name) y los ids obtenidos de concert_types, venue_types, tours y cities.
 
-2. Para registrar las canciones tocadas en cada venue en "venue_songs", hacer lo siguiente:
+3. Para registrar las canciones tocadas en cada venue en "venue_songs", hacer lo siguiente:
 	Si el campo "Canción" está vacío, no registrar nada en venue_songs.
 	Caso contrario:
 		-En guest_artists_venues: buscar el campo "Artista Invitado" en guest_artist_name. Si no existe, crea un documento en guest_artists_venues y obtiene el id.
-		-En venue_songs: crea un documento con el campo de "Canción" en song_name (si está vacío, registrar null), el id de "venues" (paso 1), los ids registrados en guest_artists_venues (si no hay ningun, se registra una lista vacía) y si el campo "Es Cover?" es "SI", true, sino, false.
-		-Partir el "Canción" por "/" y buscar cada canción en la colección "tracks" por el campo "title". Si la canción del venue existe en "tracks", obtener el id de referencia y registrarlo en track_ids.
-		
-3. Todos los campos de las colecciones descritas al inicio deben existir. Si no se detecta algún valor, establecerlo en null.
+		-Partir el campo "Artista Invitado" por "," y buscar, de manera independiente, cada parte (split) en la colección "guest_artists_venues" por el campo "guest_artist_name". Si el guest_artist del venue existe en "guest_artists_venues", obtener el id de referencia y registrarlo en guest_artist_ids.
+		-En venue_songs: crea un documento con el campo de "Canción" en song_name (si está vacío, registrar null), el id de "venues" (paso 1), los ids registrados en guest_artists_venues (si no hay ninguno, se registra una lista vacía) y si el campo "Es Cover?" es "VERDADERO", true, sino, false.
+		-Partir el campo "Canción" por " / " (solo considerar que "/" esté en medio de espacios en blanco) y buscar, de manera independiente, cada parte (split) en la colección "tracks" por el campo "title" sin distinguir mayúsculas ni minúsculas. Si la canción del venue existe en "tracks", obtener el id de referencia y registrarlo en track_ids.
+      Ejemplo:
+        Caso A: "Black Magic Woman / Gypsy Queen" -> Buscar "Black Magic Woman" y luego "Gypsy Queen".
+        Caso B: "AC/DC" -> No se parte (porque no hay espacios).
+    -Si una canción se parte en dos, ambas deben mantener los mismos guest_artist_ids y el mismo is_cover de esa fila del Excel.
 
-4. Se deben usar los ids de las colecciones existentes para referenciar a venues.
+Duda: ¿Si una canción se parte en dos, ambas mantienen los mismos guest_artist_ids y el mismo is_cover de esa fila del Excel? (Asumiré que sí, a menos que indiques lo contrario).
 
-5. Manejar logs para los siguientes casos:
+4. Todos los campos de las colecciones descritas al inicio deben existir. Si no se detecta algún valor, establecerlo en null.
+
+5. Se deben usar los ids de las colecciones existentes para referenciar a venues.
+
+6. Manejar logs para los siguientes casos:
 	-Si alguno de los campos del Excel que son "obligatorio" están vacíos, indicar en el log con el campo o campos que faltan y no continuar con el registro venue.
 	
-6. El excel a leer tiene casi 47000 filas, por lo cual, para validar los datos en las colecciones existentes, es mejor obtener todo en memoria y evitar hacerlo uno por uno.
+7. El excel a leer tiene casi 47000 filas, por lo cual, para validar los datos en las colecciones existentes, es mejor obtener todo en memoria y evitar hacerlo uno por uno.
 
-7. Aplica trim a todos los datos y, para las comparaciones, no hacer distinciones entre mayúsculas y minúsculas.
+8. Aplica trim a todos los datos y, para las comparaciones, no hacer distinciones entre mayúsculas y minúsculas.
 
-8. El programa debe ser idempotente. La llave del Excel es "Fecha", "Venue" y "Ciudad". Cada vez que lo ejecute, debe registrar lo que no existe, ya que, contínuamente actualizaré el Excel con más fechas de conciertos.
+9. El programa debe ser idempotente. La llave del Excel es "Fecha", "Venue", "Tipo de Función" y "Ciudad". Cada vez que lo ejecute, debe registrar lo que no existe y, para los venues existentes, eliminar los venue_songs existentes y reemplazar por una nueva lista según el Excel.
 
+10. Debe haber logs para lo siguiente:
+  10.1. Indicar si el concierto ya existe, con ícono 🆕
+  10.2. Indicar si el concierto existe y se va a actualizar, con ícono ✅
+  10.3. Indicar si la fecha es incorrecta, con ícono ⚠️
+  10.4. Indicar si los campos obligatorios no están completos, con ícono ⚠️
+  10.5. Indicar si el proceso terminó, con ícono 🏁
+  10.6. Cualquier otro error que puedas preveer debe tener un mensaje con ícono ⚠️
+
+11. En MongoDB existe una colección counters que podría usarse para los IDs numéricos, esta es la estructura:
+
+{
+  "_id": "state_id",
+  "sequence_value": 213
+}
+
+{
+  "_id": "country_id",
+  "sequence_value": 250
+}
+
+{
+  "_id": "city_id",
+  "sequence_value": 144
+}
 
 Esta es la colección de continents, countries, states, cities y tracks:
 
@@ -139,10 +193,12 @@ cities
   "name": "Lima"
 }
 
+tracks:
 {
   "_id": {
     "$oid": "69640b8b9553d69017fb8e29"
   },
+  "id": 1,
   "album_id": 1,
   "title": "Waiting",
   "composer_ids": [
