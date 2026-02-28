@@ -13,6 +13,7 @@ class ConcertRepository:
         page: int = 1,
         page_size: int = 50,
         concert_type_id: Optional[int] = None,
+        venue_type_id: Optional[int] = None,
         tour_id: Optional[int] = None,
         city_id: Optional[int] = None,
         state_id: Optional[int] = None,
@@ -31,6 +32,7 @@ class ConcertRepository:
         # 3. Construcción del Match Query dinámico
         match_query = {"concert_date": {"$gte": query_start, "$lte": query_end}}
         if concert_type_id: match_query["concert_type_id"] = concert_type_id
+        if venue_type_id: match_query["venue_type_id"] = venue_type_id
         if tour_id: match_query["tour_id"] = tour_id
         if city_id: match_query["city_id"] = city_id
         if state_id: match_query["state_id"] = state_id
@@ -48,7 +50,7 @@ class ConcertRepository:
                     "metadata": [{"$count": "total"}],
                     # Rama 2: Datos paginados y joins
                     "data": [
-                        {"$sort": {"concert_date": 1}},
+                        {"$sort": {"concert_date": -1}},
                         {"$skip": skip},
                         {"$limit": page_size},
                         # --- Aquí van todos tus $lookup anteriores ---
