@@ -26,13 +26,12 @@ class GeographyService:
         # Mapping: Convert to DTO (camelCase)
         return CountryDto.model_validate(new_country_db)
 
-    async def list_countries(self, continent_id: Optional[int] = None) -> List[CountryDto]:
+    async def list_countries(self, continentId: Optional[int] = None) -> List[CountryDto]:
         """
         Retrieves a list of countries, optionally filtered by continent.
         Automatically maps the database results to the CountryDto format.
         """
-        query = {"continent_id": continent_id} if continent_id else {}
-        countries_db = await self.repo.get_countries(query)
+        countries_db = await self.repo.get_countries(continentId)
         
         # Mapping: Transform the entire list from snake_case to camelCase DTOs
         return [CountryDto.model_validate(country) for country in countries_db]

@@ -7,7 +7,7 @@ from app.core.dependencies import get_geo_service
 router = APIRouter(prefix="/geography", tags=["Geography"])
 
 @router.get(
-    "/continents/", 
+    "/continents", 
     response_model=List[ContinentDto],
     response_model_by_alias=True
 )
@@ -17,7 +17,7 @@ async def get_continents(
     return await service.list_continents()
 
 @router.get(
-    "/countries/", 
+    "/countries", 
     response_model=List[CountryDto],
     response_model_by_alias=True
 )
@@ -28,7 +28,7 @@ async def get_countries(
     return await service.list_countries(continent_id)
 
 @router.post(
-    "/countries/", 
+    "/countries", 
     status_code=201, 
     response_model=CountryDto,
     response_model_by_alias=True  # <--- Esto asegura que la respuesta del POST sea camelCase
@@ -40,24 +40,24 @@ async def create_country(
     return await service.create_country(country)
 
 @router.get(
-    "/states/", 
+    "/states", 
     response_model=List[StateDto],
     response_model_by_alias=True
 )
 async def get_states(
-    country_id: int = Query(None), 
+    countryId: int = Query(None), 
     service: GeographyService = Depends(get_geo_service)
 ):
-    return await service.list_states(country_id)
+    return await service.list_states(countryId)
 
 @router.get(
-    "/cities/", 
+    "/cities", 
     response_model=List[CityDto],
     response_model_by_alias=True
 )
 async def get_cities(
-    country_id: int = Query(None), 
-    state_id: int = Query(None), 
+    countryId: int = Query(None), 
+    stateId: int = Query(None), 
     service: GeographyService = Depends(get_geo_service)
 ):
-    return await service.list_cities(country_id,state_id)
+    return await service.list_cities(countryId,stateId)

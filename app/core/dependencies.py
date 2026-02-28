@@ -10,8 +10,6 @@ from app.repositories.geography_repository import GeographyRepository
 from app.services.geography_service import GeographyService
 from app.repositories.musician_repository import MusicianRepository
 from app.services.musician_service import MusicianService
-from app.repositories.performance_repository import PerformanceRepository
-from app.services.performance_service import PerformanceService
 from app.repositories.track_repository import TrackRepository
 from app.services.track_service import TrackService
 from app.repositories.discography_executive_summary_repository import DiscographyExecutiveSummaryRepository
@@ -39,9 +37,6 @@ def get_geo_service(db=Depends(get_db)):
 
 def get_musician_service(db=Depends(get_db)):
     return MusicianService(MusicianRepository(db))
-
-def get_performance_service(db=Depends(get_db)):
-    return PerformanceService(PerformanceRepository(db))
 
 def get_track_service(db=Depends(get_db)):
     return TrackService(TrackRepository(db))

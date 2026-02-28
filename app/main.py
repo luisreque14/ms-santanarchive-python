@@ -10,8 +10,6 @@ from fastapi import Depends
 from app.routes.geography_routes import router as geo_router
 from app.routes.musicians_routes import router as musician_router
 from app.routes.albums_routes import router as album_router
-from app.routes.recording_credits_routes import router as recording_credits_router
-from app.routes.performance_credits_routes import router as performance_credits_router
 from app.routes.composers_routes import router as composer_router
 from app.routes.tracks_routes import router as track_router
 from app.routes.statistics_routes import router as statistics_router
@@ -81,8 +79,6 @@ API_V1 = "/api/v1"
 app.include_router(geo_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 app.include_router(musician_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 app.include_router(album_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
-app.include_router(recording_credits_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
-app.include_router(performance_credits_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 app.include_router(composer_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 app.include_router(track_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 app.include_router(statistics_router, prefix=API_V1, dependencies=[Depends(validate_layered_security)])

@@ -15,7 +15,7 @@ class ContinentDto(BaseModel):
 
 class CountryDto(BaseModel):
     countryId: int = Field(..., validation_alias="id", serialization_alias="countryId")
-    countryCode: str = Field(..., validation_alias="code", serialization_alias="countryCode")
+    countryCode: Optional[str] = Field(..., validation_alias="code", serialization_alias="countryCode")
     continentId: int = Field(..., validation_alias="continent_id", serialization_alias="continentId")
     countryName: str = Field(..., validation_alias="name", serialization_alias="countryName")
 

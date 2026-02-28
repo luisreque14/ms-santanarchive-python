@@ -18,8 +18,18 @@ class GeographyRepository:
         return continent_data["id"]
 
     # --- COUNTRIES ---
-    async def get_countries(self, query: dict):
-        return await self.db.countries.find(query, {"_id": 0}).to_list(length=None)
+    async def get_countries(self, continentId: Optional[int]):
+        query = {}
+        if continentId is not None:
+            query["continent_id"] = continentId
+
+        return await self.db.countries.find(query, {
+            "_id": 0,
+            "id": 1,
+            "name": 1,
+            "continent_id": 1,
+            "code": 1
+        }).sort("name", 1).to_list(length=None)
 
     async def get_country_by_id(self, country_id: int):
         return await self.db.countries.find_one({"id": country_id})

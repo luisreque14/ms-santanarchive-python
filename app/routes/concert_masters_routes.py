@@ -4,7 +4,7 @@ from app.services.concert_masters_service import ConcertMastersService
 from app.dtos.concert_masters_dto import ConcertTypeDTO, ShowTypeDTO, VenueTypeDTO, TourDTO
 from app.core.dependencies import get_concert_masters_service
 
-router = APIRouter(prefix="/api/concert-masters", tags=["ConcertMasters"])
+router = APIRouter(prefix="/concert-masters", tags=["ConcertMasters"])
 
 @router.get("/concert-types", response_model=List[ConcertTypeDTO])
 async def get_concert_types(service: ConcertMastersService = Depends(get_concert_masters_service)):
