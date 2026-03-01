@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Optional, Any
 
-class ExecutiveSummaryDto(BaseModel):
+class DiscographyExecutiveSummaryDto(BaseModel):
     # --- Datos de entrada del Repo (Excluidos del JSON final) ---
     total_studio_tracks: int = Field(0, validation_alias="total_studio_tracks", exclude=True)
     total_studio_instrumental: int = Field(0, validation_alias="total_studio_instrumental", exclude=True)
@@ -36,7 +36,7 @@ class ExecutiveSummaryDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
     @model_validator(mode="after")
-    def finalize_and_round_stats(self) -> "ExecutiveSummaryDto":
+    def finalize_and_round_stats(self) -> "DiscographyExecutiveSummaryDto":
         """
         Orquestador de cálculos y redondeos finales.
         """

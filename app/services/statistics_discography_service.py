@@ -1,7 +1,7 @@
 from typing import Optional, List
-from app.repositories.statistics_repository import StatisticsRepository
+from app.repositories.statistics_discography_repository import StatisticsDiscographyRepository
 from app.repositories.discography_executive_summary_repository import DiscographyExecutiveSummaryRepository
-from app.dtos.statistics.executive_summary_dto import ExecutiveSummaryDto
+from app.dtos.statistics.discography.executive_summary_dto import DiscographyExecutiveSummaryDto
 from app.dtos.statistics.discography.track_key_dto import TrackKeyStatsDto
 from app.dtos.statistics.discography_dto import (
     InstrumentalStatsDto,
@@ -10,8 +10,8 @@ from app.dtos.statistics.discography_dto import (
     GuestArtistReportDto,
     InstrumentalTrackByYearDto
     )
-class StatisticsService:
-    def __init__(self, repository: StatisticsRepository, discographyExecutiveSummaryRepository: DiscographyExecutiveSummaryRepository):
+class StatisticsDiscographyService:
+    def __init__(self, repository: StatisticsDiscographyRepository, discographyExecutiveSummaryRepository: DiscographyExecutiveSummaryRepository):
         self.repo = repository
         self.discographyExecutiveSummaryRepository = discographyExecutiveSummaryRepository
 
@@ -36,15 +36,6 @@ class StatisticsService:
         # Transformación masiva a camelCase (count -> totalTracks)
         return [TrackKeyStatsDto.model_validate(stat) for stat in results_db]
 
-    async def get_executive_summary_logic(self) -> Optional[ExecutiveSummaryDto]:
-        results = await self.repo.get_executive_summary()
-        
-        # Validation: Ensure we have data before mapping to DTO
-        if not results or results[0].get("total_tracks") is None:
-            return None
-            
-        return ExecutiveSummaryDto.model_validate(results[0])
-
     async def get_love_song_stats_logic(self) -> Optional[LoveSongStatsDto]:
         results = await self.repo.get_love_song_stats()
         
@@ -64,10 +55,10 @@ class StatisticsService:
         
         return [GuestArtistReportDto.model_validate(report) for report in results_db]
 
-    async def get_executive_summary(self) -> Optional[ExecutiveSummaryDto]:
+    async def get_executive_summary(self) -> Optional[DiscographyExecutiveSummaryDto]:
         results = await self.discographyExecutiveSummaryRepository.get_executive_summary()
             
-        return ExecutiveSummaryDto.model_validate(results)
+        return DiscographyExecutiveSummaryDto.model_validate(results)
         
     async def get_instrumental_tracks_by_year(self) -> List[InstrumentalTrackByYearDto]:
         raw_data = await self.repo.get_instrumental_tracks_by_year()

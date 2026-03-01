@@ -9,7 +9,7 @@ class InstrumentalStatsDto(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
-class ExecutiveSummaryDto(BaseModel):
+class DiscographyExecutiveSummaryDto(BaseModel):
     totalTracks: int = Field(..., validation_alias="total_tracks", serialization_alias="totalTracks")
     instrumentalPercentage: float = Field(..., validation_alias="instrumental_percentage", serialization_alias="instrumentalPercentage")
     loveSongsPercentage: float = Field(..., validation_alias="love_songs_percentage", serialization_alias="loveSongsPercentage")

@@ -1,7 +1,8 @@
 from fastapi import Depends
 from app.database import get_db
-from app.repositories.statistics_repository import StatisticsRepository
-from app.services.statistics_service import StatisticsService
+from app.repositories.statistics_discography_repository import StatisticsDiscographyRepository
+from app.repositories.statistics_concerts_repository import StatisticsConcertsRepository
+from app.services.statistics_discography_service import StatisticsDiscographyService
 from app.repositories.album_repository import AlbumRepository
 from app.services.album_service import AlbumService
 from app.repositories.composer_repository import ComposerRepository
@@ -17,11 +18,13 @@ from app.repositories.concert_repository import ConcertRepository
 from app.services.concert_service import ConcertService
 from app.repositories.concert_masters_repository import ConcertMastersRepository
 from app.services.concert_masters_service import ConcertMastersService
+from app.repositories.concerts_executive_summary_repository import ConcertsExecutiveSummaryRepository
+from app.services.statistics_concerts_service import StatisticsConcertsService
 
-def get_stats_service(db=Depends(get_db)):
-    repo = StatisticsRepository(db)
+def get_stats_discography_service(db=Depends(get_db)):
+    repo = StatisticsDiscographyRepository(db)
     executiveSummaryRepo = DiscographyExecutiveSummaryRepository(db)
-    return StatisticsService(repo, executiveSummaryRepo)
+    return StatisticsDiscographyService(repo, executiveSummaryRepo)
 
 def get_album_service(db=Depends(get_db)):
     repo = AlbumRepository(db)
@@ -46,3 +49,8 @@ def get_concert_service(db=Depends(get_db)):
 
 def get_concert_masters_service(db=Depends(get_db)):
     return ConcertMastersService(ConcertMastersRepository(db))
+
+def get_stats_concerts_service(db=Depends(get_db)):
+    repo = StatisticsConcertsRepository(db)
+    executiveSummaryRepo = ConcertsExecutiveSummaryRepository(db)
+    return StatisticsConcertsService(repo, executiveSummaryRepo)

@@ -1,7 +1,7 @@
 from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-class StatisticsRepository:
+class StatisticsDiscographyRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
