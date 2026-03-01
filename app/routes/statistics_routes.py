@@ -14,6 +14,7 @@ from app.dtos.statistics.discography_dto import (
 from app.core.dependencies import get_stats_discography_service
 from app.core.dependencies import get_stats_concerts_service
 from app.services.statistics_concerts_service import StatisticsConcertsService
+from app.dtos.track_dto import TrackForConcertDto
 
 router = APIRouter(prefix="/statistics", tags=["Statistics"])
 
@@ -111,3 +112,13 @@ async def get_executive_summary(
     if not data:
         raise HTTPException(status_code=404, detail="Could not generate executive summary")
     return data
+
+@router.get(
+    "/concerts/get-top-20-most-played-songs", 
+    response_model=List[TrackForConcertDto],
+    response_model_by_alias=True
+)
+async def get_top_20_most_played_songs(
+    service: StatisticsConcertsService = Depends(get_stats_concerts_service)
+):
+    return await service.get_top_20_most_played_songs()

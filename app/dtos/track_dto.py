@@ -41,3 +41,6 @@ class GenreFilterDto(BaseModel):
     tracks: List[TrackDto] = Field(..., validation_alias="tracks", serialization_alias="tracks")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+class TrackForConcertDto(TrackWithAlbumDetailsDto):
+    playCountInConcerts: int = Field(0, validation_alias="play_count", serialization_alias="playCountInConcerts")
