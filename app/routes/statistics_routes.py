@@ -15,7 +15,7 @@ from app.core.dependencies import get_stats_discography_service
 from app.core.dependencies import get_stats_concerts_service
 from app.services.statistics_concerts_service import StatisticsConcertsService
 from app.dtos.track_dto import TrackForConcertDto, NonAlbumTrackDto
-from app.dtos.album_dto import AlbumDto
+from app.dtos.album_dto import AlbumDto, AlbumForConcertDto
 from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
 from app.dtos.statistics.concerts.concert_country_dto import ConcertCountryDto
 from app.dtos.statistics.concerts.conquest_milestone_dto import ConquestMilestoneDto
@@ -129,7 +129,7 @@ async def get_top_20_most_played_songs(
 
 @router.get(
     "/concerts/get-top-10-most-played-albums", 
-    response_model=List[AlbumDto],
+    response_model=List[AlbumForConcertDto],
     response_model_by_alias=True
 )
 async def get_top_10_most_played_albums(

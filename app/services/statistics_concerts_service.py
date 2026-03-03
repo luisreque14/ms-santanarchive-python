@@ -4,7 +4,7 @@ from app.repositories.concerts_executive_summary_repository import ConcertsExecu
 from app.dtos.statistics.concerts.executive_summary_dto import ConcertExecutiveSummaryDto
 from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
 from app.dtos.track_dto import TrackForConcertDto, NonAlbumTrackDto
-from app.dtos.album_dto import AlbumDto
+from app.dtos.album_dto import AlbumDto, AlbumForConcertDto
 from app.dtos.statistics.concerts.concert_country_dto import ConcertCountryDto
 from app.dtos.statistics.concerts.conquest_milestone_dto import ConquestMilestoneDto
 
@@ -23,7 +23,7 @@ class StatisticsConcertsService:
         
         return [TrackForConcertDto.model_validate(report) for report in results_db]
     
-    async def get_top_10_most_played_albums(self) -> List[TrackForConcertDto]:
+    async def get_top_10_most_played_albums(self) -> List[AlbumForConcertDto]:
         results_db = await self.repo.get_top_10_most_played_studio_albums()
         
         return [AlbumDto.model_validate(report) for report in results_db]

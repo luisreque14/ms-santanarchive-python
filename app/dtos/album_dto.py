@@ -22,8 +22,6 @@ class AlbumDto(BaseModel):
     cover: Optional[str] = Field(None, validation_alias="cover", serialization_alias="cover")
     duration: int = Field(..., validation_alias="duration", serialization_alias="duration")
     isLive: bool = Field(..., validation_alias="is_live", serialization_alias="isLive")
-    totalTracksCount: int = Field(..., validation_alias="total_tracks_count", serialization_alias="totalTracksCount")
-    playedSongsCount: int = Field(..., validation_alias="played_songs_count", serialization_alias="playedSongsCount")
 
     # Hacemos label y producer opcionales con valor None por defecto
     #label: Optional[str] = Field(None, validation_alias="label", serialization_alias="label")
@@ -40,3 +38,7 @@ class AlbumDto(BaseModel):
     
 class AlbumWithDetailsDto(AlbumDto):
     instrumentalTracksCount: int = Field(0, validation_alias="instrumental_tracks_count", serialization_alias="instrumentalTracksCount")
+
+class AlbumForConcertDto(AlbumDto):
+    totalTracksCount: int = Field(..., validation_alias="total_tracks_count", serialization_alias="totalTracksCount")
+    playedSongsCount: int = Field(..., validation_alias="played_songs_count", serialization_alias="playedSongsCount")
