@@ -17,6 +17,7 @@ from app.services.statistics_concerts_service import StatisticsConcertsService
 from app.dtos.track_dto import TrackForConcertDto
 from app.dtos.album_dto import AlbumDto
 from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
+from app.dtos.statistics.concerts.concert_country_dto import ConcertCountryDto
 
 router = APIRouter(prefix="/statistics", tags=["Statistics"])
 
@@ -144,3 +145,13 @@ async def get_concerts_stats_by_year(
     service: StatisticsConcertsService = Depends(get_stats_concerts_service)
 ):
     return await service.get_concerts_stats_by_year()
+
+@router.get(
+    "/concerts/get-concert-counts-by-country", 
+    response_model=List[ConcertCountryDto],
+    response_model_by_alias=True
+)
+async def get_concert_counts_by_country(
+    service: StatisticsConcertsService = Depends(get_stats_concerts_service)
+):
+    return await service.get_concert_counts_by_country()

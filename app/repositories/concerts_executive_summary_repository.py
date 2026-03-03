@@ -11,7 +11,8 @@ class ConcertsExecutiveSummaryRepository:
             self._get_total_concerts_count(),
             self._get_most_played_song(),
             self._get_most_played_album(),
-            self._get_year_with_most_concerts()
+            self._get_year_with_most_concerts(),
+            self.get_top_country_with_most_concerts()
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
@@ -20,6 +21,7 @@ class ConcertsExecutiveSummaryRepository:
             most_played_song_data,
             most_played_album_data,
             top_year_data,
+            top_country_data,
         ) = await asyncio.gather(*tasks)
 
         # Unimos todas las piezas en el resumen final
@@ -27,7 +29,8 @@ class ConcertsExecutiveSummaryRepository:
             "total_concerts": total_concerts,
             "most_played_song": most_played_song_data.get("name") if most_played_song_data else "N/A",
             "most_played_album": most_played_album_data.get("title") if most_played_album_data else "N/A",
-            "top_concert_year": top_year_data.get("year", 0) if top_year_data else 0
+            "top_concert_year": top_year_data.get("year", 0) if top_year_data else 0,
+            "top_country": top_country_data.get("country_name") if top_country_data else "N/A"
         }
 
     async def _get_total_concerts_count(self) -> int:
@@ -337,6 +340,82 @@ class ConcertsExecutiveSummaryRepository:
 
             # 4. Ordenar cronológicamente descendente
             {"$sort": {"year": -1}}
+        ]
+
+        cursor = self.db.concerts.aggregate(pipeline)
+        return await cursor.to_list(length=None)
+    
+    async def get_top_country_with_most_concerts(self) -> dict:
+        pipeline = [
+            # 1. Agrupar por ID de país
+            {"$group": {
+                "_id": "$country_id",
+                "count": {"$sum": 1}
+            }},
+            
+            # 2. Ordenar por volumen de conciertos
+            {"$sort": {"count": -1}},
+            
+            # 3. Quedarnos solo con el ID del país más frecuente
+            {"$limit": 1},
+            
+            # 4. Buscar el nombre en la colección 'countries'
+            {"$lookup": {
+                "from": "countries",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "country_info"
+            }},
+            
+            {"$unwind": "$country_info"},
+            
+            # 5. Proyectar ÚNICAMENTE el nombre para tu DTO
+            {"$project": {
+                "_id": 0,
+                "country_name": "$country_info.name"
+            }}
+        ]
+
+        result = await self.db.concerts.aggregate(pipeline).to_list(length=1)
+        # Devolvemos el string directamente o un dict con la llave esperada
+        return result[0] if result else {"country_name": "N/A"}
+    
+    async def get_concert_counts_by_country(self) -> List[dict]:
+        """
+        Obtiene un listado de todos los países con su respectiva 
+        cantidad de conciertos realizados.
+        """
+        pipeline = [
+            # 1. Agrupar conciertos por country_id
+            {"$group": {
+                "_id": "$country_id",
+                "count": {"$sum": 1}
+            }},
+
+            # 2. Relacionar con la colección de países para obtener el nombre
+            {"$lookup": {
+                "from": "countries",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "country_info"
+            }},
+
+            # 3. Aplanar el array resultante del lookup
+            {"$unwind": "$country_info"},
+
+            # 4. Proyectar campos limpios para el DTO
+            {"$project": {
+                "_id": 0,
+                "country_id": "$_id",
+                "country_name": "$country_info.name",
+                "concert_count": "$count"
+            }},
+
+            # 5. Ordenar por cantidad de conciertos (desc) y luego alfabéticamente
+            {"$sort": {
+                "concert_count": -1,
+                "country_name": 1
+            }}
         ]
 
         cursor = self.db.concerts.aggregate(pipeline)

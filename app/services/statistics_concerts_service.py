@@ -5,6 +5,7 @@ from app.dtos.statistics.concerts.executive_summary_dto import ConcertExecutiveS
 from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
 from app.dtos.track_dto import TrackForConcertDto
 from app.dtos.album_dto import AlbumDto
+from app.dtos.statistics.concerts.concert_country_dto import ConcertCountryDto
 
 class StatisticsConcertsService:
     def __init__(self, repository: StatisticsConcertsRepository, concertsExecutiveSummaryRepository: ConcertsExecutiveSummaryRepository):
@@ -30,4 +31,9 @@ class StatisticsConcertsService:
         results_db = await self.concertsExecutiveSummaryRepository.get_concerts_stats_by_year()
         
         return [ConcertYearDto.model_validate(report) for report in results_db]
+    
+    async def get_concert_counts_by_country(self) -> List[ConcertCountryDto]:
+        results_db = await self.concertsExecutiveSummaryRepository.get_concert_counts_by_country()
+        
+        return [ConcertCountryDto.model_validate(report) for report in results_db]
     
