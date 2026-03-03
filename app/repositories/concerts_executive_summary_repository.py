@@ -196,22 +196,27 @@ class ConcertsExecutiveSummaryRepository:
     
     async def get_top_10_most_played_studio_albums(self) -> List[dict]:
         pipeline = [
-            # 1. Agrupar ejecuciones de canciones por ID de álbum
+            # 1. Obtener IDs únicos de canciones que han sonado en vivo
             {"$match": {"track_ids": {"$exists": True, "$not": {"$size": 0}}}},
             {"$unwind": "$track_ids"},
+            {"$group": {"_id": "$track_ids"}}, # Esto elimina duplicados de interpretaciones
+
+            # 2. Relacionar esas canciones únicas con sus álbumes
             {"$lookup": {
                 "from": "tracks",
-                "localField": "track_ids",
+                "localField": "_id",
                 "foreignField": "id",
                 "as": "t"
             }},
             {"$unwind": "$t"},
+
+            # 3. Contar cuántas canciones ÚNICAS tiene cada álbum en vivo
             {"$group": {
                 "_id": "$t.album_id",
-                "played_songs_count": {"$sum": 1}
+                "played_songs_count": {"$sum": 1} # Ahora suma 1 por cada track_id distinto
             }},
 
-            # 2. Join con Albums para obtener metadata
+            # 4. Traer metadata del álbum
             {"$lookup": {
                 "from": "albums",
                 "localField": "_id",
@@ -220,15 +225,14 @@ class ConcertsExecutiveSummaryRepository:
             }},
             {"$unwind": "$album_info"},
 
-            # 3. FILTRO: Solo álbumes que NO sean en vivo
-            # is_live: false significa que son álbumes de estudio
+            # 5. FILTRO: Solo álbumes de estudio
             {"$match": {"album_info.is_live": False}},
 
-            # 4. Ordenar por popularidad y limitar a los 10 mejores
+            # 6. Ordenar por los que tienen más canciones distintas tocadas
             {"$sort": {"played_songs_count": -1}},
             {"$limit": 10},
 
-            # 5. Join con Tracks para obtener todas las canciones del álbum y su duración
+            # 7. Traer todos los tracks del álbum para el conteo total y duración
             {"$lookup": {
                 "from": "tracks",
                 "localField": "_id",
@@ -236,7 +240,7 @@ class ConcertsExecutiveSummaryRepository:
                 "as": "album_tracks"
             }},
 
-            # 6. Proyección final con suma de duración y conteo de tracks
+            # 8. Proyección final
             {"$project": {
                 "_id": 0,
                 "id": "$_id",
@@ -245,7 +249,7 @@ class ConcertsExecutiveSummaryRepository:
                 "release_date": "$album_info.release_date",
                 "cover": "$album_info.cover",
                 "is_live": "$album_info.is_live",
-                "played_songs_count": 1,
+                "played_songs_count": 1, 
                 "total_tracks_count": {"$size": "$album_tracks"},
                 "duration": {
                     "$sum": "$album_tracks.duration_seconds"
