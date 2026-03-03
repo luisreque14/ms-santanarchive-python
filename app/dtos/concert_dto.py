@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
+from app.dtos.concert_song_dto import ConcertSongDto
 
 class ConcertDto(BaseModel):
     concertDate: datetime = Field(..., validation_alias="concert_date", serialization_alias="concertDate")
@@ -35,3 +36,16 @@ class ConcertDto(BaseModel):
     songCount: int = Field(..., validation_alias="song_count", serialization_alias="songCount")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+class ConcertWithSetlistDto(BaseModel):
+    id: int
+    concertDate: datetime = Field(..., validation_alias="concert_date", serialization_alias="concertDate")
+    venueName: str = Field(..., validation_alias="venue_name", serialization_alias="venueName")
+    cityName: str = Field(..., validation_alias="city_name", serialization_alias="cityName")
+    countryName: str = Field(..., validation_alias="country_name", serialization_alias="countryName")
+    tourName: str = Field(..., validation_alias="tour_name", serialization_alias="tourName")
+    songCount: int = Field(..., validation_alias="song_count", serialization_alias="songCount")
+    
+    setlist: List[ConcertSongDto] = []
+
+    model_config = {"populate_by_name": True}

@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from app.repositories.concert_repository import ConcertRepository
-from app.dtos.concert_dto import ConcertDto
+from app.dtos.concert_dto import ConcertDto, ConcertWithSetlistDto
+from app.dtos.concert_song_dto import ConcertSongDto
 from app.dtos.paginated_response import PaginatedResponse
 
 class ConcertService:
@@ -49,3 +50,37 @@ class ConcertService:
             pageSize=repo_response.get("pageSize", page_size),
             results=concerts_dtos
         )
+    
+    async def get_by_date(self, search_date: datetime) -> List[ConcertDto]:
+        data = await self.repo.get_by_date(search_date)
+        
+        return [ConcertDto(**item) for item in data]
+    
+    async def get_concert_setlist(self, concert_id: int) -> List[ConcertSongDto]:
+        data = await self.repo.get_concert_setlist(concert_id)
+        
+        return [ConcertSongDto(**item) for item in data]
+    
+    async def get_concert_details_by_date(self, search_date: datetime) -> List[ConcertWithSetlistDto]:
+        # 1. Obtener los conciertos de la fecha
+        concerts_data = await self.repo.get_by_date(search_date)
+        
+        if not concerts_data:
+            return []
+
+        results = []
+        
+        # 2. Iterar por cada concierto encontrado para traer sus canciones
+        for concert_dict in concerts_data:
+            # Convertimos el diccionario base a DTO
+            concert_dto = ConcertWithSetlistDto(**concert_dict)
+            
+            # 3. Llamamos al método del repo para obtener las canciones
+            songs_data = await self.repo.get_concert_setlist(concert_dto.id)
+            
+            # 4. Mapeamos las canciones a su DTO y las asignamos al concierto
+            concert_dto.setlist = [ConcertSongDto(**song) for song in songs_data]
+            
+            results.append(concert_dto)
+            
+        return results

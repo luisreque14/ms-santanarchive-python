@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Query, status
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from app.services.concert_service import ConcertService
-from app.dtos.concert_dto import ConcertDto
+from app.dtos.concert_dto import ConcertDto, ConcertWithSetlistDto
+from app.dtos.concert_song_dto import ConcertSongDto
 from app.dtos.paginated_response import PaginatedResponse
 from app.core.dependencies import get_concert_service
 
@@ -45,3 +46,41 @@ async def get_concerts(
         country_id,
         continent_id
     )
+
+@router.get(
+    "/get-by-date", 
+    response_model=List[ConcertDto],
+    response_model_by_alias=True,
+    status_code=status.HTTP_200_OK
+)
+async def get_by_date(
+    search_date: datetime = Query(..., description="Search date (YYYY-MM-DD)", alias="search_date"),
+    service: ConcertService = Depends(get_concert_service)
+):
+    return await service.get_by_date(
+        search_date
+    )
+
+@router.get(
+    "/get-setlist", 
+    response_model=List[ConcertSongDto],
+    response_model_by_alias=True,
+    status_code=status.HTTP_200_OK
+)
+async def get_concert_setlist(
+    concert_id: int = Query(1, ge=1),
+    service: ConcertService = Depends(get_concert_service)
+):
+    return await service.get_concert_setlist(concert_id)
+
+@router.get(
+    "/get-concert-details-by-date", 
+    response_model=List[ConcertWithSetlistDto],
+    response_model_by_alias=True,
+    status_code=status.HTTP_200_OK
+)
+async def get_concert_details_by_date(
+    date: datetime = Query(..., description="Search date (YYYY-MM-DD)", alias="date"),
+    service: ConcertService = Depends(get_concert_service)
+):
+    return await service.get_concert_details_by_date(date)
