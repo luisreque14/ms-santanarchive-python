@@ -9,6 +9,7 @@ class ConcertExecutiveSummaryDto(BaseModel):
     topConcertCountry: str = Field(..., validation_alias="top_country", serialization_alias="topConcertCountry")
     songOpener: str = Field(..., validation_alias="song_opener", serialization_alias="songOpener")
     totalNonAlbumSongs: int = Field(0, validation_alias="total_non_album_songs", serialization_alias="totalNonAlbumSongs")
+    totalTracksNeverPlayed: int = Field(0, validation_alias="total_studio_tracks_never_played", serialization_alias="totalTracksNeverPlayed")
 
     model_config = ConfigDict(populate_by_name=True)
 

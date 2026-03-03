@@ -13,7 +13,8 @@ class ConcertsExecutiveSummaryRepository:
             self._get_year_with_most_concerts(),
             self._get_top_country_with_most_concerts(),
             self._get_most_frequent_concert_opener_song(),
-            self._get_total_non_album_songs()
+            self._get_total_non_album_songs(),
+            self._get_total_studio_tracks_never_played()
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
@@ -25,6 +26,7 @@ class ConcertsExecutiveSummaryRepository:
             top_country_data,
             song_opener_data,
             total_non_album_songs,
+            total_studio_tracks_never_played
         ) = await asyncio.gather(*tasks)
 
         # Unimos todas las piezas en el resumen final
@@ -35,7 +37,8 @@ class ConcertsExecutiveSummaryRepository:
             "top_concert_year": top_year_data.get("year", 0) if top_year_data else 0,
             "top_country": top_country_data.get("country_name") if top_country_data else "N/A",
             "song_opener": song_opener_data.get("song_name") if song_opener_data else "N/A",
-            "total_non_album_songs": total_non_album_songs
+            "total_non_album_songs": total_non_album_songs,
+            "total_studio_tracks_never_played": total_studio_tracks_never_played
         }
 
     async def _get_total_concerts_count(self) -> int:
@@ -277,3 +280,31 @@ class ConcertsExecutiveSummaryRepository:
         result = await self.db.concert_songs.aggregate(pipeline).to_list(length=1)
         return result[0]["total"] if result else 0
     
+    async def _get_total_studio_tracks_never_played(self) -> int:
+        """
+        Cuenta los tracks de estudio (is_live=False) que 
+        no tienen ninguna ejecución registrada en vivo.
+        """
+        pipeline = [
+            # 1. Filtramos solo tracks que NO son grabaciones en vivo
+            {"$match": {"metadata.is_live": False}},
+            
+            # 2. Buscamos si el ID de este track aparece en algún concierto
+            {"$lookup": {
+                "from": "concert_songs",
+                "localField": "id",
+                "foreignField": "track_ids",
+                "as": "concert_appearances"
+            }},
+            
+            # 3. Filtramos los que tienen el array de conciertos vacío
+            {"$match": {
+                "concert_appearances": {"$size": 0}
+            }},
+            
+            # 4. Contamos el resultado
+            {"$count": "total_unplayed"}
+        ]
+
+        result = await self.db.tracks.aggregate(pipeline).to_list(length=1)
+        return result[0]["total_unplayed"] if result else 0
