@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.dtos.concert_song_dto import ConcertSongDto
 
 class ConcertDto(BaseModel):
+    id: int = Field(..., validation_alias="id", serialization_alias="id")
+
     concertDate: datetime = Field(..., validation_alias="concert_date", serialization_alias="concertDate")
     venueName: str = Field(..., validation_alias="venue_name", serialization_alias="venueName")
     

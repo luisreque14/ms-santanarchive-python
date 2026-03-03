@@ -68,10 +68,10 @@ async def get_by_date(
     status_code=status.HTTP_200_OK
 )
 async def get_concert_setlist(
-    concert_id: int = Query(1, ge=1),
+    concertId: int = Query(1, ge=1),
     service: ConcertService = Depends(get_concert_service)
 ):
-    return await service.get_concert_setlist(concert_id)
+    return await service.get_concert_setlist(concertId)
 
 @router.get(
     "/get-concert-details-by-date", 

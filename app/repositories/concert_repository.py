@@ -73,6 +73,7 @@ class ConcertRepository:
                         # Proyección final
                         {"$project": {
                             "_id": 0,
+                            "id": "$id",
                             "concert_date": 1,
                             "venue_name": 1,
                             "venue_type_id": 1,
@@ -194,7 +195,7 @@ class ConcertRepository:
             # 5. Proyección final con los nombres mapeados
             {"$project": {
                 "_id": 0,
-                "id": 1,
+                "id": "$id",
                 "concert_date": 1,
                 "venue_name": 1,
                 "venue_type_id": 1,
@@ -220,7 +221,11 @@ class ConcertRepository:
         ]
 
         cursor = self.db.concerts.aggregate(pipeline)
-        return await cursor.to_list(length=None)
+        
+        results = await cursor.to_list(length=None)
+        if results:
+            print(f"DEBUG: First record keys: {results[0].keys()}")
+        return results
     
     async def get_concert_setlist(self, concert_id: int) -> List[dict]:
         pipeline = [
