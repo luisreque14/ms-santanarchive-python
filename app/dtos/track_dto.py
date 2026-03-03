@@ -29,6 +29,7 @@ class TrackDto(BaseModel):
     composers: List[str] = Field(default_factory=list, validation_alias="composers", serialization_alias="composers")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+    
 class TrackWithAlbumDetailsDto(TrackDto):
     albumId: int = Field(..., validation_alias="album_id", serialization_alias="albumId")
     albumTitle: str = Field(..., validation_alias="album_title", serialization_alias="albumTitle")

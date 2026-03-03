@@ -37,3 +37,8 @@ class StatisticsConcertsService:
         
         return [ConcertCountryDto.model_validate(report) for report in results_db]
     
+    async def get_top_20_concert_opener_tracks(self) -> List[TrackForConcertDto]:
+        results_db = await self.concertsExecutiveSummaryRepository.get_top_20_concert_opener_tracks()
+        
+        return [TrackForConcertDto.model_validate(report) for report in results_db]
+    

@@ -155,3 +155,13 @@ async def get_concert_counts_by_country(
     service: StatisticsConcertsService = Depends(get_stats_concerts_service)
 ):
     return await service.get_concert_counts_by_country()
+
+@router.get(
+    "/concerts/get-top-20-concert-opener-tracks", 
+    response_model=List[TrackForConcertDto],
+    response_model_by_alias=True
+)
+async def get_top_20_concert_opener_tracks(
+    service: StatisticsConcertsService = Depends(get_stats_concerts_service)
+):
+    return await service.get_top_20_concert_opener_tracks()

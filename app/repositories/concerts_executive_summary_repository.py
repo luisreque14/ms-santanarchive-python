@@ -1,6 +1,7 @@
 from typing import List
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import asyncio
+from datetime import datetime
 
 class ConcertsExecutiveSummaryRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
@@ -12,7 +13,8 @@ class ConcertsExecutiveSummaryRepository:
             self._get_most_played_song(),
             self._get_most_played_album(),
             self._get_year_with_most_concerts(),
-            self.get_top_country_with_most_concerts()
+            self._get_top_country_with_most_concerts(),
+            self._get_most_frequent_concert_opener_song()
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
@@ -22,6 +24,7 @@ class ConcertsExecutiveSummaryRepository:
             most_played_album_data,
             top_year_data,
             top_country_data,
+            song_opener_data,
         ) = await asyncio.gather(*tasks)
 
         # Unimos todas las piezas en el resumen final
@@ -30,7 +33,8 @@ class ConcertsExecutiveSummaryRepository:
             "most_played_song": most_played_song_data.get("name") if most_played_song_data else "N/A",
             "most_played_album": most_played_album_data.get("title") if most_played_album_data else "N/A",
             "top_concert_year": top_year_data.get("year", 0) if top_year_data else 0,
-            "top_country": top_country_data.get("country_name") if top_country_data else "N/A"
+            "top_country": top_country_data.get("country_name") if top_country_data else "N/A",
+            "song_opener": song_opener_data.get("song_name") if song_opener_data else "N/A"
         }
 
     async def _get_total_concerts_count(self) -> int:
@@ -345,7 +349,7 @@ class ConcertsExecutiveSummaryRepository:
         cursor = self.db.concerts.aggregate(pipeline)
         return await cursor.to_list(length=None)
     
-    async def get_top_country_with_most_concerts(self) -> dict:
+    async def _get_top_country_with_most_concerts(self) -> dict:
         pipeline = [
             # 1. Agrupar por ID de país
             {"$group": {
@@ -420,3 +424,105 @@ class ConcertsExecutiveSummaryRepository:
 
         cursor = self.db.concerts.aggregate(pipeline)
         return await cursor.to_list(length=None)
+    
+    async def _get_most_frequent_concert_opener_song(self) -> dict:
+        """
+        Obtiene el nombre de la canción que más veces ha abierto un concierto.
+        """
+        pipeline = [
+            # 1. Filtramos solo la primera canción de cada setlist
+            {"$match": {"song_number": 1}},
+            
+            # 2. Agrupamos por nombre y contamos apariciones
+            {"$group": {
+                "_id": "$song_name",
+                "count": {"$sum": 1}
+            }},
+            
+            # 3. Ordenamos por el que más veces aparece
+            {"$sort": {"count": -1}},
+            
+            # 4. Tomamos solo el primero (el ganador)
+            {"$limit": 1},
+            
+            # 5. Proyectamos solo el nombre para que el DTO sea limpio
+            {"$project": {
+                "_id": 0,
+                "song_name": "$_id"
+            }}
+        ]
+
+        result = await self.db.concert_songs.aggregate(pipeline).to_list(length=1)
+        return result[0] if result else {"song_name": "N/A"}
+    
+    async def get_top_20_concert_opener_tracks(self) -> List[dict]:
+        pipeline = [
+            {"$match": {"song_number": 1}},
+            {"$group": {
+                "_id": "$song_name",
+                "opening_count": {"$sum": 1}, 
+                "track_id": {"$first": {"$arrayElemAt": ["$track_ids", 0]}}
+            }},
+            {"$sort": {"opening_count": -1}},
+            {"$limit": 20},
+            
+            # Buscamos el total de ejecuciones (en cualquier posición) para esta canción
+            {"$lookup": {
+                "from": "concert_songs",
+                "localField": "_id",
+                "foreignField": "song_name",
+                "as": "all_performances"
+            }},
+            
+            # Joins de metadata (Tracks, Genres, Composers, Albums)
+            {"$lookup": {
+                "from": "tracks",
+                "localField": "track_id",
+                "foreignField": "id",
+                "as": "track_info"
+            }},
+            {"$unwind": {"path": "$track_info", "preserveNullAndEmptyArrays": True}},
+            
+            {"$lookup": {
+                "from": "genres",
+                "localField": "track_info.genre_ids",
+                "foreignField": "id",
+                "as": "genres_data"
+            }},
+            {"$lookup": {
+                "from": "composers",
+                "localField": "track_info.composer_ids",
+                "foreignField": "id",
+                "as": "composers_data"
+            }},
+            {"$lookup": {
+                "from": "albums",
+                "localField": "track_info.album_id",
+                "foreignField": "id",
+                "as": "album_info"
+            }},
+            {"$unwind": {"path": "$album_info", "preserveNullAndEmptyArrays": True}},
+
+            {"$project": {
+                "_id": 0,
+                "play_count": "$opening_count", 
+                "title": {"$ifNull": ["$track_info.title", "$_id"]},
+                "track_number": {"$ifNull": ["$track_info.track_number", 0]},
+                "duration": {"$ifNull": ["$track_info.duration", "00:00:00"]},
+                "duration_seconds": {"$ifNull": ["$track_info.duration_seconds", 0]},
+                "genres": {"$ifNull": ["$genres_data.name", []]}, 
+                "composers": {"$ifNull": ["$composers_data.name", []]},
+                "metadata": {"$ifNull": ["$track_info.metadata", {
+                    "key": "N/A", "is_instrumental": False, "is_live": True, "is_love_song": False
+                }]},
+                "guest_artists": {"$ifNull": ["$track_info.guest_artist_ids", []]},
+                "album_id": {"$ifNull": ["$album_info.id", 0]},
+                "album_title": {"$ifNull": ["$album_info.title", "Non-Album Track"]},
+                "album_release_year": {"$ifNull": ["$album_info.release_year", 0]},
+                "album_release_date": {"$ifNull": ["$album_info.release_date", datetime(1900, 1, 1)]},
+                "album_cover": {"$ifNull": ["$album_info.cover", None]}
+            }}
+        ]
+
+        cursor = self.db.concert_songs.aggregate(pipeline)
+        return await cursor.to_list(length=20)
