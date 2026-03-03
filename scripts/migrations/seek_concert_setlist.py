@@ -1,3 +1,5 @@
+# python -m scripts.migrations.seek_concert_setlist
+
 import pandas as pd
 import time
 from selenium import webdriver
@@ -174,6 +176,8 @@ def ejecutar_scraping_rango(inicio, fin, headless):
 if __name__ == "__main__":
     datos = ejecutar_scraping_rango(ANIO_INICIO, ANIO_FIN, MODO_HEADLESS)
     if datos:
+        print(f" [INFO] Guardar datos en: " + f"Santana_Setlists_{ANIO_INICIO}_{ANIO_FIN}.xlsx")
+
         df = pd.DataFrame(datos)
         columnas = ["Fecha", "Venue", "Es Festival?", "Tour", "Ciudad", "Estado", "País", "Canción", "Artista Invitado",
                     "Artista Invitado Full Text"]

@@ -1,4 +1,4 @@
-# python -m scripts.check_data.check_concert_consistency
+# python -m scripts.check_data.check_venue_consistency
 import pandas as pd
 import os
 

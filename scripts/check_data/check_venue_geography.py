@@ -1,4 +1,4 @@
-# python -m scripts.check_data.check_concert_geography
+# python -m scripts.check_data.check_venue_geography
 import asyncio
 import pandas as pd
 from scripts.common.db_utils import db_manager
@@ -42,6 +42,21 @@ async def audit_geography(filename: str):
 
     print(f"🔍 Auditing {len(df)} rows...")
 
+    # --- BLOQUE 0: AUDITORÍA INTERNA DEL EXCEL (Consistencia de Datos) ---
+    print("🧐 Checking internal Excel consistency...")
+    
+    # Agrupamos por ciudad y vemos cuántos países únicos tiene asociados
+    excel_city_consistency = df.groupby('Ciudad')['País'].nunique()
+    cities_with_multiple_countries_excel = excel_city_consistency[excel_city_consistency > 1].index.tolist()
+    
+    internal_excel_conflicts = []
+    for city in cities_with_multiple_countries_excel:
+        countries_in_excel = df[df['Ciudad'] == city]['País'].unique().tolist()
+        internal_excel_conflicts.append({
+            "city": city,
+            "countries": countries_in_excel
+        })
+
     # --- BLOQUE 1: AUDITORÍA DE PAÍSES ---
     unique_countries = df['País'].dropna().unique()
     for p_excel in unique_countries:
@@ -78,6 +93,52 @@ async def audit_geography(filename: str):
             else:
                 cities_not_found.add(f"{c_excel} (País: {row['País']})")
 
+    # 3. Maestros de Ciudades (Cambiamos a diccionario con mapeo de país)
+    cities_data = await db.cities.find().to_list(None)
+    # Creamos un mapa: { "nombre_ciudad": [id_pais1, id_pais2] }
+    cities_db_map = {}
+    for d in cities_data:
+        c_name = str(d['name']).strip().lower()
+        p_id = d['country_id']
+        if c_name not in cities_db_map:
+            cities_db_map[c_name] = []
+        cities_db_map[c_name].append(p_id)
+    
+    # Necesitamos también un mapa de Nombres de Países a IDs para comparar con el Excel
+    countries_to_id = {d['name'].lower().strip(): d['id'] for d in countries_data}
+
+    # --- BLOQUE 4: CIUDADES CON MISMO NOMBRE PERO DIFERENTE PAÍS ---
+    location_conflicts = []
+    
+    for _, row in unique_cities.iterrows():
+        c_excel = str(row['Ciudad']).strip()
+        p_excel = str(row['País']).strip().lower()
+        c_lower = c_excel.lower()
+        
+        # Si la ciudad existe en la DB
+        if c_lower in cities_db_map:
+            excel_country_id = countries_to_id.get(p_excel)
+            
+            # Si el país del Excel no está en la lista de países que tienen esa ciudad en la DB
+            if excel_country_id and excel_country_id not in cities_db_map[c_lower]:
+                # Buscamos los nombres de los países que SÍ tienen esa ciudad en la DB para el reporte
+                db_countries = [countries_data[next(i for i, x in enumerate(countries_data) if x['id'] == pid)]['name'] 
+                               for pid in cities_db_map[c_lower]]
+                
+                location_conflicts.append({
+                    "ciudad": c_excel,
+                    "pais_excel": row['País'],
+                    "paises_db": db_countries
+                })
+
+    # 0. REPORTE DE CONSISTENCIA INTERNA DEL EXCEL
+    print(f"\n📑 0. INTERNAL EXCEL CONSISTENCY (Same city in different countries within file):")
+    if not internal_excel_conflicts:
+        print("   ✅ Excel is internally consistent (1 city = 1 country).")
+    else:
+        for item in internal_excel_conflicts:
+            print(f"   [DUPLICATE CITY NAME] '{item['city']}' is listed in multiple countries: {item['countries']}")
+
     # --- REPORTE FINAL SEPARADO ---
     print("\n" + "="*70)
     print("📊 INDEPENDENT GEOGRAPHIC AUDIT REPORT")
@@ -110,6 +171,14 @@ async def audit_geography(filename: str):
 
     print("\n" + "="*70)
     await db_manager.close()
+
+    # 4. REPORTE DE CONFLICTOS DE UBICACIÓN
+    print(f"\n⚠️  4. LOCATION CONFLICTS (Same city name, different country):")
+    if not location_conflicts:
+        print("   ✅ No name-country mismatches found.")
+    else:
+        for item in location_conflicts:
+            print(f"   [MISMATCH] City: '{item['ciudad']}' | In Excel: {item['pais_excel']} | In DB exists for: {item['paises_db']}")
 
 if __name__ == "__main__":
     FILE_PATH = r"D:\Videos\santanarchive\ms-santanarchive-python\scripts\data_sources\Conciertos-Consolidado.xlsx"

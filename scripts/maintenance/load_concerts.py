@@ -33,7 +33,7 @@ class ConcertsLoader:
             
             if coll == 'tracks':
                 self.cache[coll] = {str(d.get('title')).strip().lower(): d.get('id') for d in data}
-            elif coll == 'concert':
+            elif coll == 'concerts':
                 # Llave: (fecha_str, venue_name_lower, show_type_id, city_id)
                 self.cache[coll] = {
                     (d.get('concert_date_str'), d.get('venue_name').lower(), d.get('show_type_id'), d.get('city_id')): d.get('id') 
