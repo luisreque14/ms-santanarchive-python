@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field, ConfigDict
 
 class ConcertYearDto(BaseModel):

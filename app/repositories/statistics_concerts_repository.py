@@ -1,6 +1,6 @@
 from typing import Optional, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from app.dtos.statistics.concerts.executive_summary_dto import ConcertExecutiveSummaryDto
+from datetime import datetime
 
 class StatisticsConcertsRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
@@ -337,4 +337,48 @@ class StatisticsConcertsRepository:
         ]
 
         cursor = self.db.concert_songs.aggregate(pipeline)
+        return await cursor.to_list(length=None)
+    
+    async def get_geographic_conquest_milestones(self) -> List[dict]:
+        pipeline = [
+            # 1. Agrupamos por país para encontrar el año de la primera visita
+            {"$group": {
+                "_id": "$country_id",
+                "first_visit_year": {"$min": "$concert_year"},
+                "total_concerts_in_country": {"$sum": 1}
+            }},
+
+            # 2. Traemos la información del País (Nombre y Código ISO)
+            {"$lookup": {
+                "from": "countries",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "country_info"
+            }},
+            {"$unwind": "$country_info"},
+
+            # 3. Traemos la información del Continente
+            {"$lookup": {
+                "from": "continents",
+                "localField": "country_info.continent_id",
+                "foreignField": "id",
+                "as": "continent_info"
+            }},
+            {"$unwind": "$continent_info"},
+
+            # 4. Ordenamos cronológicamente por el año de conquista
+            {"$sort": {"first_visit_year": 1}},
+
+            # 5. Proyectamos el resultado final para el DTO
+            {"$project": {
+                "_id": 0,
+                "year": "$first_visit_year",
+                "countryName": "$country_info.name",
+                "countryCode": "$country_info.code", # Importante para el mapa
+                "continentName": "$continent_info.name",
+                "totalShowsToDate": "$total_concerts_in_country"
+            }}
+        ]
+
+        cursor = self.db.concerts.aggregate(pipeline)
         return await cursor.to_list(length=None)

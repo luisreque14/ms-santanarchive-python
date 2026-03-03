@@ -6,6 +6,7 @@ from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
 from app.dtos.track_dto import TrackForConcertDto, NonAlbumTrackDto
 from app.dtos.album_dto import AlbumDto
 from app.dtos.statistics.concerts.concert_country_dto import ConcertCountryDto
+from app.dtos.statistics.concerts.conquest_milestone_dto import ConquestMilestoneDto
 
 class StatisticsConcertsService:
     def __init__(self, repository: StatisticsConcertsRepository, concertsExecutiveSummaryRepository: ConcertsExecutiveSummaryRepository):
@@ -46,4 +47,9 @@ class StatisticsConcertsService:
         results_db = await self.repo.get_non_album_songs()
         
         return [NonAlbumTrackDto.model_validate(report) for report in results_db]
+    
+    async def get_geographic_conquest_milestones(self) -> List[ConquestMilestoneDto]:
+        results_db = await self.repo.get_geographic_conquest_milestones()
+        
+        return [ConquestMilestoneDto.model_validate(report) for report in results_db]
     

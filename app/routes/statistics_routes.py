@@ -18,6 +18,7 @@ from app.dtos.track_dto import TrackForConcertDto, NonAlbumTrackDto
 from app.dtos.album_dto import AlbumDto
 from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
 from app.dtos.statistics.concerts.concert_country_dto import ConcertCountryDto
+from app.dtos.statistics.concerts.conquest_milestone_dto import ConquestMilestoneDto
 
 router = APIRouter(prefix="/statistics", tags=["Statistics"])
 
@@ -175,3 +176,13 @@ async def get_non_album_songs(
     service: StatisticsConcertsService = Depends(get_stats_concerts_service)
 ):
     return await service.get_non_album_songs()
+
+@router.get(
+    "/concerts/get-geographic-conquest-milestones", 
+    response_model=List[ConquestMilestoneDto],
+    response_model_by_alias=True
+)
+async def get_geographic_conquest_milestones(
+    service: StatisticsConcertsService = Depends(get_stats_concerts_service)
+):
+    return await service.get_geographic_conquest_milestones()

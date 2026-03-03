@@ -1,7 +1,5 @@
-from typing import List
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import asyncio
-from datetime import datetime
 
 class ConcertsExecutiveSummaryRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
