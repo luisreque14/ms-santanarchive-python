@@ -45,3 +45,7 @@ class GenreFilterDto(BaseModel):
 
 class TrackForConcertDto(TrackWithAlbumDetailsDto):
     playCountInConcerts: int = Field(0, validation_alias="play_count", serialization_alias="playCountInConcerts")
+
+class NonAlbumTrackDto(BaseModel):
+    title: str = Field(..., validation_alias="title", serialization_alias="title")
+    playCountInConcerts: int = Field(0, validation_alias="play_count", serialization_alias="playCountInConcerts")

@@ -14,7 +14,8 @@ class ConcertsExecutiveSummaryRepository:
             self._get_most_played_album(),
             self._get_year_with_most_concerts(),
             self._get_top_country_with_most_concerts(),
-            self._get_most_frequent_concert_opener_song()
+            self._get_most_frequent_concert_opener_song(),
+            self._get_total_non_album_songs()
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
@@ -25,6 +26,7 @@ class ConcertsExecutiveSummaryRepository:
             top_year_data,
             top_country_data,
             song_opener_data,
+            total_non_album_songs,
         ) = await asyncio.gather(*tasks)
 
         # Unimos todas las piezas en el resumen final
@@ -34,7 +36,8 @@ class ConcertsExecutiveSummaryRepository:
             "most_played_album": most_played_album_data.get("title") if most_played_album_data else "N/A",
             "top_concert_year": top_year_data.get("year", 0) if top_year_data else 0,
             "top_country": top_country_data.get("country_name") if top_country_data else "N/A",
-            "song_opener": song_opener_data.get("song_name") if song_opener_data else "N/A"
+            "song_opener": song_opener_data.get("song_name") if song_opener_data else "N/A",
+            "total_non_album_songs": total_non_album_songs
         }
 
     async def _get_total_concerts_count(self) -> int:
@@ -526,3 +529,80 @@ class ConcertsExecutiveSummaryRepository:
 
         cursor = self.db.concert_songs.aggregate(pipeline)
         return await cursor.to_list(length=20)
+    
+    async def _get_total_non_album_songs(self) -> int:
+        """
+        Cuenta cuántas canciones únicas existen en los conciertos 
+        que no tienen una relación con la colección de tracks/albums.
+        """
+        pipeline = [
+            # 1. Agrupamos por nombre de canción para tener canciones ÚNICAS
+            {"$group": {
+                "_id": "$song_name",
+                "track_id": {"$first": {"$arrayElemAt": ["$track_ids", 0]}}
+            }},
+            
+            # 2. Intentamos buscar la canción en la colección de tracks
+            {"$lookup": {
+                "from": "tracks",
+                "localField": "track_id",
+                "foreignField": "id",
+                "as": "track_info"
+            }},
+            
+            # 3. Filtramos: solo nos quedamos con las que NO tienen info en tracks
+            # y que tampoco tienen un track_id válido (por si acaso)
+            {"$match": {
+                "$or": [
+                    {"track_info": {"$size": 0}},
+                    {"track_id": {"$exists": False}},
+                    {"track_id": None}
+                ]
+            }},
+            
+            # 4. Contamos el resultado final
+            {"$count": "total"}
+        ]
+
+        result = await self.db.concert_songs.aggregate(pipeline).to_list(length=1)
+        return result[0]["total"] if result else 0
+    
+    async def get_non_album_songs(self) -> List[dict]:
+        """
+        Obtiene el listado de canciones que se han tocado en vivo 
+        pero no existen en la colección de tracks/álbumes.
+        """
+        pipeline = [
+            # 1. Agrupar por nombre de canción para evitar duplicados
+            {"$group": {
+                "_id": "$song_name",
+                "track_id": {"$first": {"$arrayElemAt": ["$track_ids", 0]}},
+                "total_plays": {"$sum": 1}
+            }},
+
+            # 2. Intentar cruzar con la tabla de tracks de estudio
+            {"$lookup": {
+                "from": "tracks",
+                "localField": "track_id",
+                "foreignField": "id",
+                "as": "studio_record"
+            }},
+
+            # 3. Filtrar: Solo nos quedamos con las que NO tienen registro en studio_record
+            {"$match": {
+                "studio_record": {"$size": 0}
+            }},
+
+            # 4. Ordenar por las más populares en vivo
+            {"$sort": {"total_plays": -1}},
+
+            # 5. Proyectar un resultado limpio que encaje con tus DTOs básicos
+            {"$project": {
+                "_id": 0,
+                "title": "$_id",
+                "play_count": "$total_plays",
+            }}
+        ]
+
+        cursor = self.db.concert_songs.aggregate(pipeline)
+        return await cursor.to_list(length=None)

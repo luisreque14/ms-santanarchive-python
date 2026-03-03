@@ -3,7 +3,7 @@ from app.repositories.statistics_concerts_repository import StatisticsConcertsRe
 from app.repositories.concerts_executive_summary_repository import ConcertsExecutiveSummaryRepository
 from app.dtos.statistics.concerts.executive_summary_dto import ConcertExecutiveSummaryDto
 from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
-from app.dtos.track_dto import TrackForConcertDto
+from app.dtos.track_dto import TrackForConcertDto, NonAlbumTrackDto
 from app.dtos.album_dto import AlbumDto
 from app.dtos.statistics.concerts.concert_country_dto import ConcertCountryDto
 
@@ -41,4 +41,9 @@ class StatisticsConcertsService:
         results_db = await self.concertsExecutiveSummaryRepository.get_top_20_concert_opener_tracks()
         
         return [TrackForConcertDto.model_validate(report) for report in results_db]
+    
+    async def get_non_album_songs(self) -> List[NonAlbumTrackDto]:
+        results_db = await self.concertsExecutiveSummaryRepository.get_non_album_songs()
+        
+        return [NonAlbumTrackDto.model_validate(report) for report in results_db]
     
