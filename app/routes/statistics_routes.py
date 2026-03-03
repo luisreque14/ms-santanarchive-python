@@ -16,6 +16,7 @@ from app.core.dependencies import get_stats_concerts_service
 from app.services.statistics_concerts_service import StatisticsConcertsService
 from app.dtos.track_dto import TrackForConcertDto
 from app.dtos.album_dto import AlbumDto
+from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
 
 router = APIRouter(prefix="/statistics", tags=["Statistics"])
 
@@ -133,3 +134,13 @@ async def get_top_10_most_played_albums(
     service: StatisticsConcertsService = Depends(get_stats_concerts_service)
 ):
     return await service.get_top_10_most_played_albums()
+
+@router.get(
+    "/concerts/get-concerts-stats-by-year", 
+    response_model=List[ConcertYearDto],
+    response_model_by_alias=True
+)
+async def get_concerts_stats_by_year(
+    service: StatisticsConcertsService = Depends(get_stats_concerts_service)
+):
+    return await service.get_concerts_stats_by_year()

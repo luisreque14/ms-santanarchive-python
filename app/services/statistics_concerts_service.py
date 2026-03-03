@@ -2,6 +2,7 @@ from typing import List, Optional
 from app.repositories.statistics_concerts_repository import StatisticsConcertsRepository
 from app.repositories.concerts_executive_summary_repository import ConcertsExecutiveSummaryRepository
 from app.dtos.statistics.concerts.executive_summary_dto import ConcertExecutiveSummaryDto
+from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
 from app.dtos.track_dto import TrackForConcertDto
 from app.dtos.album_dto import AlbumDto
 
@@ -24,4 +25,9 @@ class StatisticsConcertsService:
         results_db = await self.concertsExecutiveSummaryRepository.get_top_10_most_played_studio_albums()
         
         return [AlbumDto.model_validate(report) for report in results_db]
+    
+    async def get_concerts_stats_by_year(self) -> List[ConcertYearDto]:
+        results_db = await self.concertsExecutiveSummaryRepository.get_concerts_stats_by_year()
+        
+        return [ConcertYearDto.model_validate(report) for report in results_db]
     

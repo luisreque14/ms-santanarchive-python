@@ -10,24 +10,24 @@ class ConcertsExecutiveSummaryRepository:
         tasks = [
             self._get_total_concerts_count(),
             self._get_most_played_song(),
-            self._get_most_played_album()
+            self._get_most_played_album(),
+            self._get_year_with_most_concerts()
         ]
         
         # gather espera a que todas terminen y devuelve los resultados en orden
         (
             total_concerts,
-            most_played_data,
-            most_played_album_data
+            most_played_song_data,
+            most_played_album_data,
+            top_year_data,
         ) = await asyncio.gather(*tasks)
-
-        song_name = most_played_data.get("name") if most_played_data else "N/A"
-        album_name = most_played_album_data.get("title") if most_played_album_data else "N/A"
 
         # Unimos todas las piezas en el resumen final
         return {
             "total_concerts": total_concerts,
-            "most_played_song": song_name,
-            "most_played_album": album_name
+            "most_played_song": most_played_song_data.get("name") if most_played_song_data else "N/A",
+            "most_played_album": most_played_album_data.get("title") if most_played_album_data else "N/A",
+            "top_concert_year": top_year_data.get("year", 0) if top_year_data else 0
         }
 
     async def _get_total_concerts_count(self) -> int:
@@ -261,3 +261,83 @@ class ConcertsExecutiveSummaryRepository:
 
         cursor = self.db.concert_songs.aggregate(pipeline)
         return await cursor.to_list(length=10)
+    
+    async def _get_year_with_most_concerts(self) -> dict:
+        """
+        Obtiene el año con mayor actividad usando el campo indexado concert_year.
+        Incluye todos los tipos de eventos registrados.
+        """
+        pipeline = [
+            # 1. Aseguramos que el año no sea nulo para evitar el grupo 'None'
+            {"$match": {
+                "concert_year": {"$ne": None}
+            }},
+            
+            # 2. Agrupamos directamente por el campo pre-calculado
+            {"$group": {
+                "_id": "$concert_year", 
+                "count": {"$sum": 1}
+            }},
+            
+            # 3. Ordenamos: Mayor cantidad primero, desempate por el año más reciente
+            {"$sort": {
+                "count": -1,
+                "_id": -1 
+            }},
+            
+            # 4. Tomamos el ganador
+            {"$limit": 1},
+            
+            # 5. Proyectamos el resultado final
+            {"$project": {
+                "_id": 0,
+                "year": "$_id",
+                "count": 1
+            }}
+        ]
+
+        result = await self.db.concerts.aggregate(pipeline).to_list(length=1)
+        return result[0] if result else {"year": 0, "count": 0}
+    
+    async def get_concerts_stats_by_year(self) -> List[dict]:
+        pipeline = [
+            # 1. Agrupar conciertos por el campo concert_year directamente
+            {"$group": {
+                "_id": "$concert_year",
+                "total_concerts": {"$sum": 1},
+                # Guardamos los IDs de los conciertos de este año para el siguiente paso
+                "concert_ids_in_year": {"$push": "$id"}
+            }},
+
+            # 2. Join con concert_songs para obtener las canciones de todos esos conciertos
+            {"$lookup": {
+                "from": "concert_songs",
+                "localField": "concert_ids_in_year",
+                "foreignField": "concert_id",
+                "as": "year_songs"
+            }},
+
+            # 3. Procesar canciones únicas
+            {"$project": {
+                "year": "$_id",
+                "total_concerts": 1,
+                # Obtenemos los nombres de canciones únicos para este año
+                "different_songs_count": {
+                    "$size": {
+                        "$setUnion": {
+                            "$filter": {
+                                "input": "$year_songs.song_name",
+                                "as": "sn",
+                                "cond": { "$ne": ["$$sn", None] }
+                            }
+                        }
+                    }
+                }
+            }},
+
+            # 4. Ordenar cronológicamente descendente
+            {"$sort": {"year": -1}}
+        ]
+
+        cursor = self.db.concerts.aggregate(pipeline)
+        return await cursor.to_list(length=None)
