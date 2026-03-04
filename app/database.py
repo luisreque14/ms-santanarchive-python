@@ -47,6 +47,16 @@ async def setup_database_indexes(db: AsyncIOMotorClient):
         await db.tracks.create_index([("metadata.is_live", 1), ("id", 1)], background=True)
         await db.tracks.create_index("album_id", background=True)
 
+        # --- Colección: tracks ---
+        # Para _get_top_lead_singer y _get_general_track_stats
+        await db.tracks.create_index("lead_vocal_ids", background=True)
+
+        # Para get_total_guest_artists
+        await db.tracks.create_index("guest_artist_ids", background=True)
+
+        # Para get_total_by_composer
+        await db.tracks.create_index("composer_ids", background=True)
+
         print("✅ All indexes ensured successfully.")
     except Exception as e:
-        logger.error(f"❌ Error creating indexes: {e}")
+        print(f"❌ Error creating indexes: {e}")
