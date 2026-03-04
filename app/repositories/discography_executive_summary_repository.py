@@ -61,41 +61,27 @@ class DiscographyExecutiveSummaryRepository:
         pipeline = [
             {
                 "$facet": {
-                    "general": [
+                    "stats": [
                         {
                             "$group": {
                                 "_id": None,
                                 "total_tracks": {"$sum": 1},
-                                "studio_instrumental": {
-                                    "$sum": {
-                                        "$cond": [
-                                            {"$and": [
-                                                {"$eq": ["$metadata.is_live", False]},
-                                                {"$eq": ["$metadata.is_instrumental", True]}
-                                            ]}, 1, 0
-                                        ]
-                                    }
+                                "total_studio_tracks": {"$sum": {"$cond": [{"$eq": ["$metadata.is_live", False]}, 1, 0]}},
+                                "total_studio_instrumental": {
+                                    "$sum": {"$cond": [{"$and": [
+                                        {"$eq": ["$metadata.is_live", False]},
+                                        {"$eq": ["$metadata.is_instrumental", True]}
+                                    ]}, 1, 0]}
                                 },
-                                # Total de canciones de estudio para el denominador
-                                "total_studio": {
-                                    "$sum": {"$cond": [{"$eq": ["$metadata.is_live", False]}, 1, 0]}
+                                "minor_keys_count": {
+                                    "$sum": {"$cond": [{"$regexMatch": {"input": "$metadata.key", "regex": "m$"}}, 1, 0]}
                                 },
-                                "love_songs": {"$sum": {"$cond": ["$metadata.is_love_song", 1, 0]}},
-                                "minor_keys": {
-                                    "$sum": {
-                                        "$cond": [
-                                            {"$regexMatch": {"input": "$metadata.key", "regex": "m$"}}, 
-                                            1, 0
-                                        ]
-                                    }
-                                },
-                                "target_musician_songs": {
-                                    "$sum": {"$cond": [{"$in": [musician_id, "$lead_vocal_ids"]}, 1, 0]}
-                                }
+                                "songs_by_musician": {"$sum": {"$cond": [{"$in": [musician_id, "$lead_vocal_ids"]}, 1, 0]}}
                             }
                         }
                     ],
                     "most_used_key": [
+                        {"$match": {"metadata.key": {"$ne": None}}},
                         {"$group": {"_id": "$metadata.key", "count": {"$sum": 1}}},
                         {"$sort": {"count": -1}},
                         {"$limit": 1}
@@ -104,15 +90,15 @@ class DiscographyExecutiveSummaryRepository:
             },
             {
                 "$project": {
-                    "total_tracks": {"$arrayElemAt": ["$general.total_tracks", 0]},
-                    "total_studio_instrumental": {"$arrayElemAt": ["$general.studio_instrumental", 0]},
-                    "total_studio_tracks": {"$arrayElemAt": ["$general.total_studio", 0]},
-                    "total_songs_by_musician": {"$arrayElemAt": ["$general.target_musician_songs", 0]},
+                    "total_tracks": {"$arrayElemAt": ["$stats.total_tracks", 0]},
+                    "total_studio_tracks": {"$arrayElemAt": ["$stats.total_studio_tracks", 0]},
+                    "total_studio_instrumental": {"$arrayElemAt": ["$stats.total_studio_instrumental", 0]},
+                    "total_songs_by_musician": {"$arrayElemAt": ["$stats.songs_by_musician", 0]},
                     "percentage_keys_minor": {
                         "$cond": [
-                            {"$gt": [{"$arrayElemAt": ["$general.total_tracks", 0]}, 0]},
+                            {"$gt": [{"$arrayElemAt": ["$stats.total_tracks", 0]}, 0]},
                             {"$multiply": [
-                                {"$divide": [{"$arrayElemAt": ["$general.minor_keys", 0]}, {"$arrayElemAt": ["$general.total_tracks", 0]}]},
+                                {"$divide": [{"$arrayElemAt": ["$stats.minor_keys_count", 0]}, {"$arrayElemAt": ["$stats.total_tracks", 0]}]},
                                 100
                             ]},
                             0
@@ -150,69 +136,40 @@ class DiscographyExecutiveSummaryRepository:
         }
 
     async def _get_album_insights(self) -> dict:
-        pipeline = [
-            # 1. Agrupamos tracks por album_id para sumar su duración total
-            {
-                "$group": {
-                    "_id": "$album_id",
-                    "total_duration_seconds": {"$sum": "$duration_seconds"}
-                }
-            },
-            # 2. Unimos con la colección 'albums' para obtener el título e is_live
-            {
-                "$lookup": {
-                    "from": "albums",
-                    "localField": "_id",
-                    "foreignField": "id",
-                    "as": "info"
-                }
-            },
-            {"$unwind": "$info"},
-            
-            # 3. Filtramos: Solo álbumes de estudio (is_live: false)
-            {
-                "$match": {
-                    "info.is_live": False
-                }
-            },
-            
-            # 4. Bifurcamos con $facet para obtener el más largo y el más corto
-            {
-                "$facet": {
-                    "longest": [
-                        {"$sort": {"total_duration_seconds": -1}},
-                        {"$limit": 1},
-                        {"$project": {"title": "$info.title"}}
-                    ],
-                    "shortest": [
-                        {"$sort": {"total_duration_seconds": 1}},
-                        {"$limit": 1},
-                        {"$project": {"title": "$info.title"}}
-                    ]
-                }
-            },
-            
-            # 5. Proyectamos para devolver un diccionario plano
-            {
-                "$project": {
-                    "longest_studio_album": {"$arrayElemAt": ["$longest.title", 0]},
-                    "shortest_studio_album": {"$arrayElemAt": ["$shortest.title", 0]}
-                }
-            }
+        # 1. Agrupar duraciones por ID de álbum (Operación rápida en memoria)
+        pipeline_durations = [
+            {"$group": {"_id": "$album_id", "total_duration": {"$sum": "$duration_seconds"}}},
+            {"$sort": {"total_duration": -1}}
         ]
+        album_stats = await self.db.tracks.aggregate(pipeline_durations).to_list(length=None)
         
-        cursor = self.db.tracks.aggregate(pipeline)
-        result = await cursor.to_list(length=1)
+        if not album_stats:
+            return {"longest_studio_album": "N/A", "shortest_studio_album": "N/A"}
+
+        # 2. Obtener lista de IDs de álbumes de estudio (is_live: False)
+        studio_album_ids = await self.db.albums.distinct("id", {"is_live": False})
         
-        # Manejo de valores por defecto si no hay álbumes de estudio
-        if result and result[0]:
-            data = result[0]
-            return {
-                "longest_studio_album": data.get("longest_studio_album", "N/A"),
-                "shortest_studio_album": data.get("shortest_studio_album", "N/A")
-            }
+        # 3. Filtrar los stats para que solo queden los de estudio
+        studio_stats = [s for s in album_stats if s["_id"] in studio_album_ids]
         
-        return {"longest_studio_album": "N/A", "shortest_studio_album": "N/A"}
+        if not studio_stats:
+            return {"longest_studio_album": "N/A", "shortest_studio_album": "N/A"}
+
+        # 4. Solo buscamos los nombres de los dos que nos interesan
+        longest_id = studio_stats[0]["_id"]
+        shortest_id = studio_stats[-1]["_id"]
+        
+        names = await self.db.albums.find(
+            {"id": {"$in": [longest_id, shortest_id]}},
+            {"id": 1, "title": 1}
+        ).to_list(length=2)
+        
+        name_map = {a["id"]: a["title"] for a in names}
+        
+        return {
+            "longest_studio_album": name_map.get(longest_id, "N/A"),
+            "shortest_studio_album": name_map.get(shortest_id, "N/A")
+        }
 
     async def _get_top_lead_singer(self) -> dict:
         pipeline = [
@@ -226,14 +183,17 @@ class DiscographyExecutiveSummaryRepository:
                 "foreignField": "id",
                 "as": "m"
             }},
-            {"$unwind": "$m"},
             {"$project": {
                 "_id": 0,
-                "top1_albums_singer": {"$concat": ["$m.first_name", " ", "$m.last_name"]}
+                "top1_albums_singer": {
+                    "$let": {
+                        "vars": {"first": {"$arrayElemAt": ["$m", 0]}},
+                        "in": {"$concat": ["$$first.first_name", " ", "$$first.last_name"]}
+                    }
+                }
             }}
         ]
-        cursor = self.db.tracks.aggregate(pipeline)
-        result = await cursor.to_list(length=1)
+        result = await self.db.tracks.aggregate(pipeline).to_list(length=1)
         return result[0] if result else {"top1_albums_singer": "N/A"}
     
     async def _get_most_instrumental_album(self) -> str:
@@ -329,33 +289,22 @@ class DiscographyExecutiveSummaryRepository:
         return result[0]["total_count"] if result else 0
     
     async def get_total_guest_artists(self) -> int:
-        pipeline = [
-            # 1. Filtramos tracks de estudio que tengan artistas invitados
-            {
-                "$match": {
-                    "metadata.is_live": False,
-                    "guest_artist_ids": {"$exists": True, "$not": {"$size": 0}}
-                }
-            },
-            # 2. Descomponemos el array guest_artist_ids
-            # Cada ID de la lista se convierte en un documento independiente
-            {"$unwind": "$guest_artist_ids"},
-            # 3. Agrupamos por el ID del artista para eliminar duplicados
-            {
-                "$group": {
-                    "_id": "$guest_artist_ids"
-                }
-            },
-            # 4. Contamos cuántos grupos (artistas únicos) resultaron
-            {
-                "$count": "total_guests"
-            }
-        ]
+        # distinct() hace el trabajo de unwind y group automáticamente en el motor de C++ de Mongo
+        guests = await self.db.tracks.distinct(
+            "guest_artist_ids", 
+            {"metadata.is_live": False, "guest_artist_ids": {"$exists": True, "$ne": []}}
+        )
+        return len(guests)
 
-        cursor = self.db.tracks.aggregate(pipeline)
-        result = await cursor.to_list(length=1)
+    async def get_total_live_tracks_in_studio_albums(self) -> int:
+        # Obtenemos los IDs de álbumes de estudio
+        studio_ids = await self.db.albums.distinct("id", {"is_live": False})
         
-        return result[0]["total_guests"] if result else 0
+        # Contamos tracks en vivo que pertenecen a esos IDs
+        return await self.db.tracks.count_documents({
+            "metadata.is_live": True,
+            "album_id": {"$in": studio_ids}
+        })
     
     async def get_total_live_tracks_in_studio_albums(self) -> int:
         pipeline = [
