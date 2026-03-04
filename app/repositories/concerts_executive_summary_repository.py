@@ -54,11 +54,9 @@ class ConcertsExecutiveSummaryRepository:
         pipeline = [
             {"$match": {"track_ids": {"$exists": True, "$not": {"$size": 0}}}},
             {"$unwind": "$track_ids"},
-            {"$group": {
-                "_id": "$track_ids",
-                "count": {"$sum": 1}
-            }},
-            # 1. Traemos la información del track ANTES del sort
+            {"$group": {"_id": "$track_ids", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 1}, # <--- Movemos el limit aquí arriba
             {"$lookup": {
                 "from": "tracks",
                 "localField": "_id",
@@ -66,54 +64,41 @@ class ConcertsExecutiveSummaryRepository:
                 "as": "track_data"
             }},
             {"$unwind": "$track_data"},
-            
-            # 2. ORDENAMIENTO DETERMINISTA
-            # Si el count es igual, el orden alfabético del nombre decidirá.
-            # Esto garantiza que siempre salga la misma canción en cada ejecución.
-            {"$sort": {
-                "count": -1, 
-                "track_data.title": 1  # Segundo criterio: Alfabético A-Z
-            }},
-            
-            {"$limit": 1},
             {"$project": {
                 "_id": 0,
                 "id": "$_id",
                 "name": "$track_data.title"
             }}
         ]
-
         result = await self.db.concert_songs.aggregate(pipeline).to_list(length=1)
         return result[0] if result else {"id": 0, "name": "N/A"}
     
     async def _get_most_played_album(self) -> dict:
-        """
-        Obtiene el título del álbum cuyas canciones (sumadas) se han 
-        interpretado más veces en todos los conciertos.
-        """
         pipeline = [
-            # 1. Filtrar ejecuciones con tracks vinculados
-            {"$match": {"track_ids": {"$exists": True, "$not": {"$size": 0}}}},
-            
-            # 2. Descomponer los tracks vinculados
+            # 1. Agrupar por track_ids (que son listas) de forma rápida
             {"$unwind": "$track_ids"},
+            {"$group": {"_id": "$track_ids", "total_plays": {"$sum": 1}}},
             
-            # 3. Join con 'tracks' para saber a qué álbum pertenece cada canción
+            # 2. Join con tracks para saber su álbum
             {"$lookup": {
                 "from": "tracks",
-                "localField": "track_ids",
+                "localField": "_id",
                 "foreignField": "id",
                 "as": "track_info"
             }},
             {"$unwind": "$track_info"},
             
-            # 4. Agrupar por el ID del álbum y contar ejecuciones totales
+            # 3. Re-agrupar por álbum_id
             {"$group": {
                 "_id": "$track_info.album_id",
-                "total_plays": {"$sum": 1}
+                "total_album_plays": {"$sum": "$total_plays"}
             }},
             
-            # 5. Join con 'albums' para obtener el título
+            # 4. Quedarnos solo con el ganador
+            {"$sort": {"total_album_plays": -1}},
+            {"$limit": 1},
+            
+            # 5. Buscar el nombre del álbum ganador
             {"$lookup": {
                 "from": "albums",
                 "localField": "_id",
@@ -121,23 +106,8 @@ class ConcertsExecutiveSummaryRepository:
                 "as": "album_info"
             }},
             {"$unwind": "$album_info"},
-            
-            # 6. Ordenar por el álbum más escuchado y desempate por título
-            {"$sort": {
-                "total_plays": -1,
-                "album_info.title": 1
-            }},
-            
-            # 7. Tomar el ganador
-            {"$limit": 1},
-            
-            # 8. Proyectar solo el título
-            {"$project": {
-                "_id": 0,
-                "title": "$album_info.title"
-            }}
+            {"$project": {"_id": 0, "title": "$album_info.title"}}
         ]
-
         result = await self.db.concert_songs.aggregate(pipeline).to_list(length=1)
         return result[0] if result else {"title": "N/A"}
     
@@ -177,40 +147,22 @@ class ConcertsExecutiveSummaryRepository:
 
         result = await self.db.concerts.aggregate(pipeline).to_list(length=1)
         return result[0] if result else {"year": 0, "count": 0}
-    
+        
     async def _get_top_country_with_most_concerts(self) -> dict:
         pipeline = [
-            # 1. Agrupar por ID de país
-            {"$group": {
-                "_id": "$country_id",
-                "count": {"$sum": 1}
-            }},
-            
-            # 2. Ordenar por volumen de conciertos
+            {"$group": {"_id": "$country_id", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}},
-            
-            # 3. Quedarnos solo con el ID del país más frecuente
             {"$limit": 1},
-            
-            # 4. Buscar el nombre en la colección 'countries'
             {"$lookup": {
                 "from": "countries",
                 "localField": "_id",
                 "foreignField": "id",
                 "as": "country_info"
             }},
-            
             {"$unwind": "$country_info"},
-            
-            # 5. Proyectar ÚNICAMENTE el nombre para tu DTO
-            {"$project": {
-                "_id": 0,
-                "country_name": "$country_info.name"
-            }}
+            {"$project": {"_id": 0, "country_name": "$country_info.name"}}
         ]
-
         result = await self.db.concerts.aggregate(pipeline).to_list(length=1)
-        # Devolvemos el string directamente o un dict con la llave esperada
         return result[0] if result else {"country_name": "N/A"}
     
     async def _get_most_frequent_concert_opener_song(self) -> dict:
@@ -244,67 +196,36 @@ class ConcertsExecutiveSummaryRepository:
         return result[0] if result else {"song_name": "N/A"}
     
     async def _get_total_non_album_songs(self) -> int:
-        """
-        Cuenta cuántas canciones únicas existen en los conciertos 
-        que no tienen una relación con la colección de tracks/albums.
-        """
+        # 1. Obtener IDs únicos de tracks vinculados a álbumes
+        # (Suponiendo que un track vinculado a un álbum tiene un album_id)
+        album_linked_track_ids = await self.db.tracks.distinct("id", {"album_id": {"$ne": None}})
+
+        # 2. Encontrar canciones en conciertos cuyo track_id NO esté en esa lista
+        # O canciones que no tengan track_ids en absoluto
         pipeline = [
-            # 1. Agrupamos por nombre de canción para tener canciones ÚNICAS
             {"$group": {
                 "_id": "$song_name",
                 "track_id": {"$first": {"$arrayElemAt": ["$track_ids", 0]}}
             }},
-            
-            # 2. Intentamos buscar la canción en la colección de tracks
-            {"$lookup": {
-                "from": "tracks",
-                "localField": "track_id",
-                "foreignField": "id",
-                "as": "track_info"
-            }},
-            
-            # 3. Filtramos: solo nos quedamos con las que NO tienen info en tracks
-            # y que tampoco tienen un track_id válido (por si acaso)
             {"$match": {
                 "$or": [
-                    {"track_info": {"$size": 0}},
-                    {"track_id": {"$exists": False}},
+                    {"track_id": {"$nin": album_linked_track_ids}},
                     {"track_id": None}
                 ]
             }},
-            
-            # 4. Contamos el resultado final
             {"$count": "total"}
         ]
-
         result = await self.db.concert_songs.aggregate(pipeline).to_list(length=1)
         return result[0]["total"] if result else 0
     
     async def _get_total_studio_tracks_never_played(self) -> int:
-        """
-        Cuenta los tracks de estudio (is_live=False) que 
-        no tienen ninguna ejecución registrada en vivo.
-        """
-        pipeline = [
-            # 1. Filtramos solo tracks que NO son grabaciones en vivo
-            {"$match": {"metadata.is_live": False}},
-            
-            # 2. Buscamos si el ID de este track aparece en algún concierto
-            {"$lookup": {
-                "from": "concert_songs",
-                "localField": "id",
-                "foreignField": "track_ids",
-                "as": "concert_appearances"
-            }},
-            
-            # 3. Filtramos los que tienen el array de conciertos vacío
-            {"$match": {
-                "concert_appearances": {"$size": 0}
-            }},
-            
-            # 4. Contamos el resultado
-            {"$count": "total_unplayed"}
-        ]
+        # 1. Obtener lista de IDs de tracks que SÍ se han tocado
+        # Esto es rápido si track_ids está indexado
+        played_track_ids = await self.db.concert_songs.distinct("track_ids")
 
-        result = await self.db.tracks.aggregate(pipeline).to_list(length=1)
-        return result[0]["total_unplayed"] if result else 0
+        # 2. Contar tracks de estudio que no están en esa lista
+        count = await self.db.tracks.count_documents({
+            "metadata.is_live": False,
+            "id": {"$nin": played_track_ids}
+        })
+        return count
