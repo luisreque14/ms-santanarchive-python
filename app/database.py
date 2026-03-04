@@ -26,3 +26,27 @@ async def get_next_sequence_value(sequence_name: str):
         return_document=True
     )
     return result["sequence_value"]
+
+async def setup_database_indexes(db: AsyncIOMotorClient):
+    """
+    Crea los índices necesarios para optimizar los pipelines del Executive Summary.
+    """
+    try:
+        print("Ensuring MongoDB indexes...")
+
+        # --- Colección: concert_songs ---
+        await db.concert_songs.create_index("track_ids", background=True)
+        await db.concert_songs.create_index([("song_number", 1), ("song_name", 1)], background=True)
+        
+        # --- Colección: concerts ---
+        await db.concerts.create_index([("concert_year", -1)], background=True)
+        await db.concerts.create_index("country_id", background=True)
+        await db.concerts.create_index("concert_date", background=True)
+
+        # --- Colección: tracks ---
+        await db.tracks.create_index([("metadata.is_live", 1), ("id", 1)], background=True)
+        await db.tracks.create_index("album_id", background=True)
+
+        print("✅ All indexes ensured successfully.")
+    except Exception as e:
+        logger.error(f"❌ Error creating indexes: {e}")

@@ -55,6 +55,12 @@ async def lifespan(app: FastAPI):
 
     if db_instance.db is not None:
         print("✅ MongoDB está listo y asignado a db_instance.db")
+
+        # --- LLAMADA A LA CONFIGURACIÓN DE ÍNDICES ---
+        from app.database import setup_database_indexes # Asegúrate de importar tu función
+        print("indexing database...")
+        await setup_database_indexes(db_instance.db)
+        # ---------------------------------------------
     else:
         print("❌ ERROR: La conexión falló, db_instance.db sigue siendo None")
 
@@ -86,10 +92,4 @@ app.include_router(concert_routes, prefix=API_V1, dependencies=[Depends(validate
 app.include_router(concert_masters_routes, prefix=API_V1, dependencies=[Depends(validate_layered_security)])
 
 #MÁS REPORTES:
-#Canciones en las que canta Santana (agregar campo Lead Vocals en Tracks (como arreglo de Ids), que haga referencia a la canción)
-#Canciones que abrieron conciertos en vivo
-#Conciertos en fechas de cumpleaños
-#Duración de álbumes, canción más corta, canción más extensa
 #Músicos que tuvieron otros roles en canciones: por ejemplo, Carlos tocaba congas en algunas canciones
-#Canción más tocada como intro en vivo (CONCIERTOS)
-#JUEGO: ingresa tu fecha de nacimiento o fecha de cumpleaños y mira si Santana tocó ese día
