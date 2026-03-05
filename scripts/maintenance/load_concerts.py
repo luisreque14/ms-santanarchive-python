@@ -17,6 +17,12 @@ class ConcertsLoader:
     def __init__(self):
         self.db = None
         self.cache = {}
+        self.song_exceptions = {
+                "jin-go-lo-ba": "jingo",
+                "spirits dancing in the flesh": "Let There Be Light/Spirits Dancing in the Flesh",
+                "black magic woman": "Black Magic Woman/Gypsy queen",
+                "gypsy queen": "Black Magic Woman/Gypsy queen"
+            }
 
     async def initialize(self):
         """Inicializa conexión y carga caché en memoria (Punto 7)"""
@@ -32,7 +38,18 @@ class ConcertsLoader:
             data = await cursor.to_list(length=None)
             
             if coll == 'tracks':
-                self.cache[coll] = {str(d.get('title')).strip().lower(): d.get('id') for d in data}
+                self.cache[coll] = {}
+                for d in data:
+                    title_norm = str(d.get('title')).strip().lower()
+                    # MODIFICACIÓN: Guardamos ID y el flag is_live
+                    track_info = {
+                        'id': d.get('id'),
+                        'is_live': d.get('metadata', {}).get('is_live', False)
+                    }
+                    
+                    if title_norm not in self.cache[coll]:
+                        self.cache[coll][title_norm] = []
+                    self.cache[coll][title_norm].append(track_info)
             elif coll == 'concerts':
                 # Llave: (fecha_str, venue_name_lower, show_type_id, city_id)
                 self.cache[coll] = {
@@ -111,6 +128,27 @@ class ConcertsLoader:
             'country_id': country_id,
             'continent_id': cont_id
         }
+
+    def resolve_track_id(self, song_name):
+        # 1. Normalizar nombre del Excel
+        norm_name = self.normalize(song_name)
+        
+        # 2. NUEVO: Verificar si es una excepción (Alias)
+        search_name = self.song_exceptions.get(norm_name, norm_name)
+        
+        # 3. Obtener candidatos de la caché
+        candidates = self.cache['tracks'].get(search_name, [])
+        
+        if not candidates:
+            return None
+        
+        # 4. MODIFICACIÓN: Prioridad 1 -> No es Live (Estudio)
+        studio_track = next((c['id'] for c in candidates if not c['is_live']), None)
+        if studio_track:
+            return studio_track
+        
+        # 5. Prioridad 2 -> Cualquier versión disponible (Live)
+        return candidates[0]['id']
 
     async def run(self, file_path):
         await self.initialize()
@@ -238,7 +276,7 @@ class ConcertsLoader:
                 # Split de canciones " / " (Punto 3)
                 sub_songs = [s.strip() for s in str(s_row['Canción']).split(' / ')]
                 for sub_s in sub_songs:
-                    t_id_ref = self.cache['tracks'].get(self.normalize(sub_s))
+                    t_id_ref = self.resolve_track_id(sub_s)
                     songs_to_insert.append({
                         'concert_id': concert_id, 
                         'song_number': song_counter, 
@@ -257,5 +295,5 @@ class ConcertsLoader:
 
 if __name__ == "__main__":
     loader = ConcertsLoader()
-    FILE_PATH = r"D:\Videos\santanarchive\ms-santanarchive-python\scripts\data_sources\_test_Conciertos-Consolidado.xlsx"
+    FILE_PATH = r"D:\Videos\santanarchive\ms-santanarchive-python\scripts\data_sources\Conciertos-Consolidado.xlsx"
     asyncio.run(loader.run(FILE_PATH))
