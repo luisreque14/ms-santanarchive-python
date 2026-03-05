@@ -3,8 +3,8 @@ from app.repositories.statistics_concerts_repository import StatisticsConcertsRe
 from app.repositories.concerts_executive_summary_repository import ConcertsExecutiveSummaryRepository
 from app.dtos.statistics.concerts.executive_summary_dto import ConcertExecutiveSummaryDto
 from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
-from app.dtos.track_dto import TrackForConcertDto, NonAlbumTrackDto
-from app.dtos.album_dto import AlbumDto, AlbumForConcertDto
+from app.dtos.track_dto import TrackWithAlbumDetailsForConcertDto, NonAlbumTrackDto, TrackForConcertDto
+from app.dtos.album_dto import AlbumForConcertDto
 from app.dtos.statistics.concerts.concert_country_dto import ConcertCountryDto
 from app.dtos.statistics.concerts.conquest_milestone_dto import ConquestMilestoneDto
 
@@ -18,15 +18,15 @@ class StatisticsConcertsService:
             
         return ConcertExecutiveSummaryDto.model_validate(results)
     
-    async def get_top_20_most_played_songs(self) -> List[TrackForConcertDto]:
+    async def get_top_20_most_played_songs(self) -> List[TrackWithAlbumDetailsForConcertDto]:
         results_db = await self.repo.get_top_20_most_played_songs()
         
-        return [TrackForConcertDto.model_validate(report) for report in results_db]
+        return [TrackWithAlbumDetailsForConcertDto.model_validate(report) for report in results_db]
     
-    async def get_top_10_most_played_albums(self) -> List[AlbumForConcertDto]:
-        results_db = await self.repo.get_top_10_most_played_studio_albums()
+    async def get_most_played_studio_albums(self) -> List[AlbumForConcertDto]:
+        results_db = await self.repo.get_most_played_studio_albums()
         
-        return [AlbumDto.model_validate(report) for report in results_db]
+        return [AlbumForConcertDto.model_validate(report) for report in results_db]
     
     async def get_concerts_stats_by_year(self) -> List[ConcertYearDto]:
         results_db = await self.repo.get_concerts_stats_by_year()
@@ -38,10 +38,10 @@ class StatisticsConcertsService:
         
         return [ConcertCountryDto.model_validate(report) for report in results_db]
     
-    async def get_top_20_concert_opener_tracks(self) -> List[TrackForConcertDto]:
+    async def get_top_20_concert_opener_tracks(self) -> List[TrackWithAlbumDetailsForConcertDto]:
         results_db = await self.repo.get_top_20_concert_opener_tracks()
         
-        return [TrackForConcertDto.model_validate(report) for report in results_db]
+        return [TrackWithAlbumDetailsForConcertDto.model_validate(report) for report in results_db]
     
     async def get_non_album_songs(self) -> List[NonAlbumTrackDto]:
         results_db = await self.repo.get_non_album_songs()
@@ -52,4 +52,9 @@ class StatisticsConcertsService:
         results_db = await self.repo.get_geographic_conquest_milestones()
         
         return [ConquestMilestoneDto.model_validate(report) for report in results_db]
+    
+    async def get_tracks_with_play_count_by_album(self, album_id: int) -> List[TrackForConcertDto]:
+        results_db = await self.repo.get_tracks_with_play_count_by_album(album_id)
+        
+        return [TrackForConcertDto.model_validate(report) for report in results_db]
     

@@ -5,12 +5,37 @@ class AlbumRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
-    async def get_album_by_id(self, album_id: int):
-        return await self.db.albums.find_one({"id": album_id}, {"_id": 0})
+    async def get_album_by_id(self, album_id: int) -> dict:
+        pipeline = [
+            # 1. Buscar el álbum específico
+            {"$match": {"id": album_id}},
 
-    async def create_album(self, album_data: dict):
-        await self.db.albums.insert_one(album_data)
-        return album_data["id"]
+            # 2. Unir con la colección de tracks para calcular la duración
+            {"$lookup": {
+                "from": "tracks",
+                "localField": "id",
+                "foreignField": "album_id",
+                "as": "tracks_info"
+            }},
+
+            # 3. Proyectar y renombrar campos según tus alias
+            {"$project": {
+                "_id": 0,
+                "id": 1,
+                "title": 1,
+                "release_year": 1,
+                "release_date": 1,
+                "cover": 1,
+                "is_live": 1,
+                # Sumamos la duración de todos los tracks encontrados
+                "duration": {"$sum": "$tracks_info.duration_seconds"}
+            }}
+        ]
+
+        cursor = self.db.albums.aggregate(pipeline)
+        result = await cursor.to_list(length=1)
+        
+        return result[0] if result else None
 
     async def get_tracks_by_album(self, album_id: int):
         pipeline = [

@@ -71,75 +71,85 @@ class StatisticsConcertsRepository:
         cursor = self.db.concert_songs.aggregate(pipeline)
         return await cursor.to_list(length=20)
     
-    
-    async def get_top_10_most_played_studio_albums(self) -> List[dict]:
+    async def get_most_played_studio_albums(self) -> List[dict]:
+        # 1. Obtener solo los IDs de tracks que han sonado en vivo (Desde la colección de conciertos)
+        played_track_ids = await self.db.concert_songs.distinct("track_ids")
+
         pipeline = [
-            # 1. Obtener IDs únicos de canciones que han sonado en vivo
-            {"$match": {"track_ids": {"$exists": True, "$not": {"$size": 0}}}},
-            {"$unwind": "$track_ids"},
-            {"$group": {"_id": "$track_ids"}}, # Esto elimina duplicados de interpretaciones
+            # 1. Filtro de Álbum: Solo álbumes que no sean 'Live'
+            {"$match": {"is_live": False}},
 
-            # 2. Relacionar esas canciones únicas con sus álbumes
+            # 2. Traer tracks del álbum que TAMBIÉN sean de estudio (is_live: false)
             {"$lookup": {
                 "from": "tracks",
-                "localField": "_id",
-                "foreignField": "id",
-                "as": "t"
-            }},
-            {"$unwind": "$t"},
-
-            # 3. Contar cuántas canciones ÚNICAS tiene cada álbum en vivo
-            {"$group": {
-                "_id": "$t.album_id",
-                "played_songs_count": {"$sum": 1} # Ahora suma 1 por cada track_id distinto
-            }},
-
-            # 4. Traer metadata del álbum
-            {"$lookup": {
-                "from": "albums",
-                "localField": "_id",
-                "foreignField": "id",
-                "as": "album_info"
-            }},
-            {"$unwind": "$album_info"},
-
-            # 5. FILTRO: Solo álbumes de estudio
-            {"$match": {"album_info.is_live": False}},
-
-            # 6. Ordenar por los que tienen más canciones distintas tocadas
-            {"$sort": {"played_songs_count": -1}},
-            {"$limit": 10},
-
-            # 7. Traer todos los tracks del álbum para el conteo total y duración
-            {"$lookup": {
-                "from": "tracks",
-                "localField": "_id",
-                "foreignField": "album_id",
-                "as": "album_tracks"
+                "let": {"album_id_val": "$id"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    {"$eq": ["$album_id", "$$album_id_val"]},
+                                    {"$eq": ["$metadata.is_live", False]} # <--- Filtro de Track Estudio
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "as": "studio_tracks"
             }},
 
-            # 8. Proyección final
-            {"$project": {
-                "_id": 0,
-                "id": "$_id",
-                "title": "$album_info.title",
-                "release_year": "$album_info.release_year",
-                "release_date": "$album_info.release_date",
-                "cover": "$album_info.cover",
-                "is_live": "$album_info.is_live",
-                "played_songs_count": 1, 
-                "total_tracks_count": {"$size": "$album_tracks"},
-                "duration": {
-                    "$sum": "$album_tracks.duration_seconds"
+            # 3. Identificar cuáles de esos tracks de estudio han sonado en vivo
+            {"$addFields": {
+                "played_studio_songs": {
+                    "$filter": {
+                        "input": "$studio_tracks",
+                        "as": "st",
+                        "cond": {"$in": ["$$st.id", played_track_ids]}
+                    }
                 }
             }},
-            
-            {"$sort": {"played_songs_count": -1, "title": 1}}
+
+            # 4. Cálculos de métricas basados estrictamente en material de estudio
+            {"$addFields": {
+                "played_songs_count": {"$size": "$played_studio_songs"},
+                "total_tracks_count": {"$size": "$studio_tracks"},
+                "played_percentage": {
+                    "$cond": [
+                        {"$gt": [{"$size": "$studio_tracks"}, 0]},
+                        {"$multiply": [
+                            {"$divide": [{"$size": "$played_studio_songs"}, {"$size": "$studio_tracks"}]},
+                            100
+                        ]},
+                        0
+                    ]
+                }
+            }},
+
+            # 5. Ordenamiento: Prioridad Porcentaje -> Volumen -> Título
+            {"$sort": {
+                "played_percentage": -1, 
+                "played_songs_count": -1, 
+                "title": 1
+            }},
+
+            # 6. Proyección final con todas tus columnas
+            {"$project": {
+                "_id": 0,
+                "id": 1,
+                "title": 1,
+                "release_year": 1,
+                "release_date": 1,
+                "cover": 1,
+                "is_live": 1,
+                "played_songs_count": 1, 
+                "total_tracks_count": 1,
+                "played_percentage": {"$round": ["$played_percentage", 2]},
+                "duration": {"$sum": "$studio_tracks.duration_seconds"}
+            }}
         ]
 
-        cursor = self.db.concert_songs.aggregate(pipeline)
-        return await cursor.to_list(length=10)
-    
+        cursor = self.db.albums.aggregate(pipeline)
+        return await cursor.to_list(length=None)
     
     async def get_concerts_stats_by_year(self) -> List[dict]:
         pipeline = [
@@ -381,4 +391,35 @@ class StatisticsConcertsRepository:
         ]
 
         cursor = self.db.concerts.aggregate(pipeline)
+        return await cursor.to_list(length=None)
+    
+    async def get_tracks_with_play_count_by_album(self, album_id: int) -> List[dict]:
+        pipeline = [
+            # 1. Filtramos los tracks pertenecientes al álbum solicitado
+            {"$match": {"album_id": album_id}},
+
+            # 2. Contamos las apariciones directamente en concert_songs
+            {"$lookup": {
+                "from": "concert_songs",
+                "localField": "id",
+                "foreignField": "track_ids",
+                "as": "performances"
+            }},
+
+            # 3. Proyección simplificada: solo datos del track y el conteo
+            {"$project": {
+                "_id": 0,
+                "track_number": 1,
+                "title": 1,
+                "duration": 1,
+                "duration_seconds": 1,
+                "album_id": 1,
+                "play_count": {"$size": "$performances"}
+            }},
+
+            # 4. Ordenar por número de track para mantener el orden del disco
+            {"$sort": {"track_number": 1}}
+        ]
+
+        cursor = self.db.tracks.aggregate(pipeline)
         return await cursor.to_list(length=None)

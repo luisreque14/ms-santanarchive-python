@@ -19,17 +19,6 @@ class AlbumService:
         
         return AlbumDto.model_validate(album_db)
 
-    async def create_new_album(self, album_schema) -> AlbumDto:
-        # Verificamos existencia usando el repo
-        if await self.repo.get_album_by_id(album_schema.id):
-            raise HTTPException(status_code=400, detail="Album ID already exists")
-        
-        # Guardamos en la BD usando el dump del schema (snake_case)
-        created_album = await self.repo.create_album(album_schema.model_dump())
-        
-        # Retornamos el DTO (camelCase)
-        return AlbumDto.model_validate(created_album)
-
     async def get_albums_by_studio_instrumental(self) -> AlbumWithDetailsDto:
         albums_db = await self.repo.get_albums_by_studio_instrumental()
         

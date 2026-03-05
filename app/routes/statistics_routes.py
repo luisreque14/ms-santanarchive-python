@@ -14,8 +14,8 @@ from app.dtos.statistics.discography_dto import (
 from app.core.dependencies import get_stats_discography_service
 from app.core.dependencies import get_stats_concerts_service
 from app.services.statistics_concerts_service import StatisticsConcertsService
-from app.dtos.track_dto import TrackForConcertDto, NonAlbumTrackDto
-from app.dtos.album_dto import AlbumDto, AlbumForConcertDto
+from app.dtos.track_dto import TrackWithAlbumDetailsForConcertDto, NonAlbumTrackDto, TrackForConcertDto
+from app.dtos.album_dto import AlbumForConcertDto
 from app.dtos.statistics.concerts.concert_year_dto import ConcertYearDto
 from app.dtos.statistics.concerts.concert_country_dto import ConcertCountryDto
 from app.dtos.statistics.concerts.conquest_milestone_dto import ConquestMilestoneDto
@@ -119,7 +119,7 @@ async def get_executive_summary(
 
 @router.get(
     "/concerts/get-top-20-most-played-songs", 
-    response_model=List[TrackForConcertDto],
+    response_model=List[TrackWithAlbumDetailsForConcertDto],
     response_model_by_alias=True
 )
 async def get_top_20_most_played_songs(
@@ -128,14 +128,14 @@ async def get_top_20_most_played_songs(
     return await service.get_top_20_most_played_songs()
 
 @router.get(
-    "/concerts/get-top-10-most-played-albums", 
+    "/concerts/get-most-played-albums", 
     response_model=List[AlbumForConcertDto],
     response_model_by_alias=True
 )
-async def get_top_10_most_played_albums(
+async def get_most_played_studio_albums(
     service: StatisticsConcertsService = Depends(get_stats_concerts_service)
 ):
-    return await service.get_top_10_most_played_albums()
+    return await service.get_most_played_studio_albums()
 
 @router.get(
     "/concerts/get-concerts-stats-by-year", 
@@ -159,7 +159,7 @@ async def get_concert_counts_by_country(
 
 @router.get(
     "/concerts/get-top-20-concert-opener-tracks", 
-    response_model=List[TrackForConcertDto],
+    response_model=List[TrackWithAlbumDetailsForConcertDto],
     response_model_by_alias=True
 )
 async def get_top_20_concert_opener_tracks(
@@ -186,3 +186,14 @@ async def get_geographic_conquest_milestones(
     service: StatisticsConcertsService = Depends(get_stats_concerts_service)
 ):
     return await service.get_geographic_conquest_milestones()
+
+@router.get(
+    "/concerts/get-tracks-with-play-count-by-album", 
+    response_model=List[TrackForConcertDto],
+    response_model_by_alias=True
+)
+async def get_tracks_with_play_count_by_album(
+    albumId: int = Query(None),
+    service: StatisticsConcertsService = Depends(get_stats_concerts_service)
+):
+    return await service.get_tracks_with_play_count_by_album(albumId)
