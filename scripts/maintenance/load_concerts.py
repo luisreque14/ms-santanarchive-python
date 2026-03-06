@@ -18,10 +18,16 @@ class ConcertsLoader:
         self.db = None
         self.cache = {}
         self.song_exceptions = {
-                "jin-go-lo-ba": "jingo",
-                "spirits dancing in the flesh": "Let There Be Light/Spirits Dancing in the Flesh",
-                "black magic woman": "Black Magic Woman/Gypsy queen",
-                "gypsy queen": "Black Magic Woman/Gypsy queen"
+            "jin-go-lo-ba": "Jingo",
+            "spirits dancing in the flesh": "Let There Be Light/Spirits Dancing in the Flesh",
+            "black magic woman": "Black Magic Woman/Gypsy queen",
+            "gypsy queen": "Black Magic Woman/Gypsy queen",
+            "right on": "Saja/Right On",
+            "saja": "Saja/Right On",
+            "contigo": "Contigo (With You)",
+            "holiday": "Life Is a Lady/Holiday",
+            "life is a lady": "Life Is a Lady/Holiday",
+            "stone flower (introduction)": "Stone Flower",
             }
 
     async def initialize(self):
@@ -135,9 +141,11 @@ class ConcertsLoader:
         
         # 2. NUEVO: Verificar si es una excepción (Alias)
         search_name = self.song_exceptions.get(norm_name, norm_name)
+
+        final_search = self.normalize(search_name)
         
         # 3. Obtener candidatos de la caché
-        candidates = self.cache['tracks'].get(search_name, [])
+        candidates = self.cache['tracks'].get(final_search, [])
         
         if not candidates:
             return None

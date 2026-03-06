@@ -5,14 +5,21 @@ import re
 from scripts.common.db_utils import db_manager
 from pathlib import Path
 
-async def audit_tracks(filename: str):
+# Añadimos el parámetro studio_only
+async def audit_tracks(filename: str, studio_only: bool = True):
     current_dir = Path(__file__).parent
-    file_path = current_dir.parent / filename
+    # Soporta tanto rutas absolutas como relativas al script
+    file_path = Path(filename) if Path(filename).is_absolute() else current_dir.parent / filename
     
     db = await db_manager.connect()
     
-    print("📥 Cargando maestro de Tracks desde la BD...")
-    tracks_cursor = db.tracks.find({}, {"title": 1, "_id": 0})
+    # --- FILTRADO DE TRACKS ---
+    print(f"📥 Cargando maestro de Tracks (Studio Only: {studio_only})...")
+    
+    # Definimos el filtro de búsqueda
+    query = {"metadata.is_live": False} if studio_only else {}
+    
+    tracks_cursor = db.tracks.find(query, {"title": 1, "_id": 0})
     tracks_db = [str(t['title']).strip() for t in await tracks_cursor.to_list(length=None)]
     tracks_db_lower = {t.lower(): t for t in tracks_db}
 
@@ -23,7 +30,7 @@ async def audit_tracks(filename: str):
         print(f"❌ Error al leer Excel: {e}")
         return
 
-    # Procesar títulos únicos aplicando la regla de división por " / "
+    # Procesar títulos únicos (Regla de división " / ")
     unique_titles_set = set()
     split_pattern = re.compile(r'\s+/\s+')
 
@@ -35,14 +42,13 @@ async def audit_tracks(filename: str):
         else:
             unique_titles_set.add(song_str)
 
-    # Ordenar alfabéticamente todos los títulos únicos encontrados
     sorted_unique_titles = sorted(list(unique_titles_set), key=lambda x: x.lower())
 
     songs_not_found = []
     songs_with_suggestions = []
     perfect_matches = 0
 
-    print(f"🔍 Auditando {len(sorted_unique_titles)} títulos únicos...")
+    print(f"🔍 Auditando {len(sorted_unique_titles)} títulos únicos contra {len(tracks_db)} tracks en BD...")
 
     for song_clean in sorted_unique_titles:
         song_lower = song_clean.lower()
@@ -66,9 +72,10 @@ async def audit_tracks(filename: str):
         else:
             songs_not_found.append(song_clean)
 
-    # --- REPORTE ALFABÉTICO ---
+    # --- REPORTE ---
+    mode_text = "SOLO ESTUDIO" if studio_only else "TODOS (ESTUDIO + LIVE)"
     print("\n" + "="*85)
-    print("🎵 REPORTE DE CONSISTENCIA DE TRACKS (ORDEN ALFABÉTICO)")
+    print(f"🎵 REPORTE DE CONSISTENCIA DE TRACKS - MODO: {mode_text}")
     print("="*85)
     print(f"✅ Match exacto: {perfect_matches}")
     print(f"⚠️  Con similitudes: {len(songs_with_suggestions)}")
@@ -77,16 +84,14 @@ async def audit_tracks(filename: str):
 
     if songs_with_suggestions:
         print("\n❓ SUGERENCIAS (Títulos similares en la base de datos):")
-        # Ya vienen ordenados por el loop de sorted_unique_titles
         for item in songs_with_suggestions:
             sugs = " o ".join([f"'{s}'" for s in item['db_suggestions']])
-            print(f"  • '{item['excel']}' -> ¿Es en realidad: {sugs}?")
+            print(f"   • '{item['excel']}' -> ¿Es en realidad: {sugs}?")
 
     if songs_not_found:
-        print("\n🆕 TRACKS TOTALMENTE NUEVOS:")
-        # Ya vienen ordenados por el loop de sorted_unique_titles
+        print("\n🆕 TRACKS TOTALMENTE NUEVOS O FUERA DE CATEGORÍA:")
         for song in songs_not_found:
-            print(f"  • {song}")
+            print(f"   • {song}")
 
     print("\n" + "="*85)
     print(f"TOTAL ANALIZADO: {len(sorted_unique_titles)} canciones únicas.")
@@ -95,6 +100,9 @@ async def audit_tracks(filename: str):
     await db_manager.close()
 
 if __name__ == "__main__":
-    FILE_PATH = "D:\Videos\santanarchive\ms-santanarchive-python\scripts\data_sources\Conciertos-Consolidado.xlsx"
-    # Ajusta la ruta a tu archivo consolidado
-    asyncio.run(audit_tracks(FILE_PATH))
+    # Ruta al archivo
+    FILE_PATH = r"D:\Videos\santanarchive\ms-santanarchive-python\scripts\data_sources\Conciertos-Consolidado.xlsx"
+    
+    # TRUE: Compara solo contra canciones de álbumes de estudio
+    # FALSE: Compara contra absolutamente todos los tracks en la BD
+    asyncio.run(audit_tracks(FILE_PATH, studio_only=True))
