@@ -10,6 +10,7 @@ class ConcertsExecutiveSummaryRepository:
             self._get_total_concerts_count(),
             self._get_most_played_song(),
             self._get_most_played_album(),
+            self._get_most_explored_album(),
             self._get_year_with_most_concerts(),
             self._get_top_country_with_most_concerts(),
             self._get_most_frequent_concert_opener_song(),
@@ -22,6 +23,7 @@ class ConcertsExecutiveSummaryRepository:
             total_concerts,
             most_played_song_data,
             most_played_album_data,
+            most_explored_album_data,
             top_year_data,
             top_country_data,
             song_opener_data,
@@ -34,6 +36,7 @@ class ConcertsExecutiveSummaryRepository:
             "total_concerts": total_concerts,
             "most_played_song": most_played_song_data.get("name") if most_played_song_data else "N/A",
             "most_played_album": most_played_album_data.get("title") if most_played_album_data else "N/A",
+            "most_explored_album": most_explored_album_data.get("title") if most_explored_album_data else "N/A",
             "top_concert_year": top_year_data.get("year", 0) if top_year_data else 0,
             "top_country": top_country_data.get("country_name") if top_country_data else "N/A",
             "song_opener": song_opener_data.get("song_name") if song_opener_data else "N/A",
@@ -75,42 +78,109 @@ class ConcertsExecutiveSummaryRepository:
     
     async def _get_most_played_album(self) -> dict:
         pipeline = [
-            # 1. Agrupar por track_ids (que son listas) de forma rápida
-            {"$unwind": "$track_ids"},
-            {"$group": {"_id": "$track_ids", "total_plays": {"$sum": 1}}},
-            
-            # 2. Join con tracks para saber su álbum
+            # 1. Filtro inicial
+            {"$match": {"track_ids": {"$exists": True, "$not": {"$size": 0}}}},
+
+            # 2. IMPORTANTE: Tomamos solo el PRIMER track_id del array
+            # Esto evita que si una canción tiene 2 IDs, se cuente doble.
+            {"$addFields": {
+                "primary_track_id": {"$arrayElemAt": ["$track_ids", 0]}
+            }},
+
+            # 3. Agrupar por el ID primario
+            {"$group": {
+                "_id": "$primary_track_id",
+                "execution_count": {"$sum": 1}
+            }},
+
+            # 4. Join con Tracks para obtener el álbum
             {"$lookup": {
                 "from": "tracks",
                 "localField": "_id",
                 "foreignField": "id",
-                "as": "track_info"
+                "as": "t"
             }},
-            {"$unwind": "$track_info"},
-            
-            # 3. Re-agrupar por álbum_id
+            {"$unwind": "$t"},
+
+            # 5. Agrupar por Álbum
             {"$group": {
-                "_id": "$track_info.album_id",
-                "total_album_plays": {"$sum": "$total_plays"}
+                "_id": "$t.album_id",
+                "total_album_plays": {"$sum": "$execution_count"}
             }},
-            
-            # 4. Quedarnos solo con el ganador
+
+            # 6. Limpieza y orden
+            {"$match": {"_id": {"$ne": None}}},
             {"$sort": {"total_album_plays": -1}},
             {"$limit": 1},
-            
-            # 5. Buscar el nombre del álbum ganador
+
+            # 7. Obtener Info del Álbum
             {"$lookup": {
                 "from": "albums",
                 "localField": "_id",
                 "foreignField": "id",
-                "as": "album_info"
+                "as": "a"
             }},
-            {"$unwind": "$album_info"},
-            {"$project": {"_id": 0, "title": "$album_info.title"}}
+            {"$unwind": "$a"},
+
+            {"$project": {
+                "_id": 0,
+                "title": "$a.title",
+                "total_plays": "$total_album_plays"
+            }}
         ]
+        
         result = await self.db.concert_songs.aggregate(pipeline).to_list(length=1)
-        return result[0] if result else {"title": "N/A"}
-    
+        return result[0] if result else {"title": "N/A", "total_plays": 0}
+        
+    async def _get_most_explored_album(self) -> dict:
+        pipeline = [
+            # 1. Obtener solo los track_ids únicos que existen en concert_songs
+            # Esto reduce el volumen de datos de 100,000+ filas a ~500 IDs únicos
+            {"$match": {"track_ids": {"$exists": True, "$not": {"$size": 0}}}},
+            {"$unwind": "$track_ids"},
+            {"$group": {"_id": "$track_ids"}}, 
+
+            # 2. Ahora que tenemos solo los IDs de canciones tocadas, buscamos sus álbumes
+            {"$lookup": {
+                "from": "tracks",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "t"
+            }},
+            {"$unwind": "$t"},
+
+            # 3. Agrupar por álbum y contar cuántas canciones únicas tiene
+            {"$group": {
+                "_id": "$t.album_id",
+                "total_distinct_songs": {"$sum": 1}
+            }},
+
+            # 4. Limpieza de IDs nulos
+            {"$match": {"_id": {"$ne": None}}},
+
+            # 5. Obtener el ganador
+            {"$sort": {"total_distinct_songs": -1}},
+            {"$limit": 1},
+
+            # 6. Un solo lookup final para el nombre del álbum ganador
+            {"$lookup": {
+                "from": "albums",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "a"
+            }},
+            {"$unwind": "$a"},
+
+            {"$project": {
+                "_id": 0,
+                "title": "$a.title",
+                "total_plays": "$total_distinct_songs"
+            }}
+        ]
+        
+        result = await self.db.concert_songs.aggregate(pipeline).to_list(length=1)
+        return result[0] if result else {"title": "N/A", "total_plays": 0}
+
     async def _get_year_with_most_concerts(self) -> dict:
         """
         Obtiene el año con mayor actividad usando el campo indexado concert_year.

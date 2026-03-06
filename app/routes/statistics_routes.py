@@ -138,6 +138,16 @@ async def get_most_played_studio_albums(
     return await service.get_most_played_studio_albums()
 
 @router.get(
+    "/concerts/get-most-explored-albums", 
+    response_model=List[AlbumForConcertDto],
+    response_model_by_alias=True
+)
+async def get_most_explored_studio_albums(
+    service: StatisticsConcertsService = Depends(get_stats_concerts_service)
+):
+    return await service.get_most_explored_studio_albums()
+
+@router.get(
     "/concerts/get-concerts-stats-by-year", 
     response_model=List[ConcertYearDto],
     response_model_by_alias=True

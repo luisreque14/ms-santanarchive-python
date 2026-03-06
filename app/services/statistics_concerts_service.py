@@ -28,6 +28,11 @@ class StatisticsConcertsService:
         
         return [AlbumForConcertDto.model_validate(report) for report in results_db]
     
+    async def get_most_explored_studio_albums(self) -> List[AlbumForConcertDto]:
+        results_db = await self.repo.get_most_explored_studio_albums()
+        
+        return [AlbumForConcertDto.model_validate(report) for report in results_db]
+    
     async def get_concerts_stats_by_year(self) -> List[ConcertYearDto]:
         results_db = await self.repo.get_concerts_stats_by_year()
         

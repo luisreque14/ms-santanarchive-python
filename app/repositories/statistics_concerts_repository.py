@@ -6,7 +6,6 @@ class StatisticsConcertsRepository:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
         
-    
     async def get_top_20_most_played_songs(self) -> List[dict]:
         pipeline = [
             # 1. Agrupar y contar
@@ -72,6 +71,76 @@ class StatisticsConcertsRepository:
         return await cursor.to_list(length=20)
     
     async def get_most_played_studio_albums(self) -> List[dict]:
+        pipeline = [
+            # 1. Agrupación inicial rápida: Contar ejecuciones por ID de track
+            {"$match": {"track_ids": {"$exists": True, "$not": {"$size": 0}}}},
+            {"$unwind": "$track_ids"},
+            {"$group": {
+                "_id": "$track_ids",
+                "execution_count": {"$sum": 1}
+            }},
+
+            # 2. Join con Tracks para obtener el album_id y filtrar versiones estudio
+            {"$lookup": {
+                "from": "tracks",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "t"
+            }},
+            {"$unwind": "$t"},
+            {"$match": {"t.metadata.is_live": False}},
+
+            # 3. Agrupar por Álbum sumando las ejecuciones totales
+            {"$group": {
+                "_id": "$t.album_id",
+                "played_songs_count": {"$sum": "$execution_count"}
+            }},
+
+            # 4. Join con Albums para obtener info y filtrar solo álbumes de estudio
+            {"$lookup": {
+                "from": "albums",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "a"
+            }},
+            {"$unwind": "$a"},
+            {"$match": {"a.is_live": False}},
+
+            # 5. Obtener todos los tracks del álbum para calcular la duración total de estudio
+            {"$lookup": {
+                "from": "tracks",
+                "let": {"alb_id": "$a.id"},
+                "pipeline": [
+                    {"$match": {
+                        "$expr": {"$eq": ["$album_id", "$$alb_id"]},
+                        "metadata.is_live": False
+                    }}
+                ],
+                "as": "studio_tracks"
+            }},
+
+            # 6. Proyección Final con los campos solicitados
+            {"$project": {
+                "_id": 0,
+                "id": "$a.id",
+                "title": "$a.title",
+                "release_year": "$a.release_year",
+                "release_date": "$a.release_date",
+                "cover": "$a.cover",
+                "is_live": "$a.is_live",
+                "played_songs_count": 1, 
+                "total_tracks_count": {"$literal": 0}, # Solicitado en cero
+                "played_percentage": {"$literal": 0},   # Solicitado en cero
+                "duration": {"$sum": "$studio_tracks.duration_seconds"}
+            }},
+            
+            {"$sort": {"played_songs_count": -1}}
+        ]
+
+        cursor = self.db.concert_songs.aggregate(pipeline)
+        return await cursor.to_list(length=None)
+    
+    async def get_most_explored_studio_albums(self) -> List[dict]:
         # 1. Obtener solo los IDs de tracks que han sonado en vivo (Desde la colección de conciertos)
         played_track_ids = await self.db.concert_songs.distinct("track_ids")
 
@@ -150,7 +219,7 @@ class StatisticsConcertsRepository:
 
         cursor = self.db.albums.aggregate(pipeline)
         return await cursor.to_list(length=None)
-    
+
     async def get_concerts_stats_by_year(self) -> List[dict]:
         pipeline = [
             # 1. Agrupar conciertos por el campo concert_year directamente
